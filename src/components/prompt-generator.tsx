@@ -8,11 +8,11 @@ import {
   CHARACTER_ATTRIBUTES,
   COMPANION_THEMES,
   LIGHTING_OPTIONS,
+  DIRECTOR_STYLES,
   SFW_ACTIONS,
   NSFW_ACTIONS,
   pickRandom,
   pickOne,
-  type ModelConfig,
   type Scene,
   type CharacterAttribute,
 } from '@/lib/prompt-data'
@@ -59,6 +59,7 @@ import {
   ShieldAlert,
   Flame,
   ChevronsUpDown,
+  Clapperboard,
 } from 'lucide-react'
 
 // ─── Sub-Components ───────────────────────────
@@ -136,19 +137,53 @@ function SingleSelectDropdown({
   selected: string
   onChange: (id: string) => void
 }) {
+  // Allow unsetting by clicking the already-selected value
+  const handleValueChange = (value: string) => {
+    // Radix Select fires onValueChange even when clicking the same value.
+    // We detect re-click of the same value and clear it.
+    if (value === selected && selected !== '') {
+      onChange('')
+    } else {
+      onChange(value)
+    }
+  }
+
   return (
-    <Select value={selected} onValueChange={onChange}>
-      <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500">
-        <SelectValue placeholder={`-- ${attribute.label.toLowerCase()} --`} />
-      </SelectTrigger>
-      <SelectContent className="bg-white border-gray-300">
-        {attribute.options.map(opt => (
-          <SelectItem key={opt.id} value={opt.id} className="text-gray-800 font-mono text-xs focus:bg-gray-100 focus:text-black">
-            {opt.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="flex items-center justify-between w-full bg-white border border-gray-300 rounded px-3 h-9 text-gray-800 font-mono text-xs hover:bg-gray-50 transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-500 cursor-pointer">
+          <span className="truncate">
+            {selected
+              ? attribute.options.find(o => o.id === selected)?.label || selected
+              : `-- random --`
+            }
+          </span>
+          <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 ml-2 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-1 bg-white border-gray-300 rounded-lg shadow-lg solid" align="start" sideOffset={4}>
+        <div
+          onClick={() => onChange('')}
+          className={`flex items-center px-2.5 py-2 rounded cursor-pointer transition-colors text-xs font-mono ${!selected ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+        >
+          -- random --
+        </div>
+        <Separator className="my-1" />
+        <ScrollArea className="max-h-48">
+          <div className="space-y-0.5">
+            {attribute.options.map(opt => (
+              <div
+                key={opt.id}
+                onClick={() => handleValueChange(opt.id)}
+                className={`flex items-center px-2.5 py-2 rounded cursor-pointer transition-colors text-xs font-mono ${selected === opt.id ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                {opt.label}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -268,6 +303,7 @@ export default function PromptGenerator() {
   const [mode, setMode] = useState<GeneratorMode>('custom')
   const [scene, setScene] = useState<string>('')
   const [promptCount, setPromptCount] = useState(10)
+  const [directorStyle, setDirectorStyle] = useState<string>('none')
   const [companionTheme, setCompanionTheme] = useState<string>('')
   const [companionLighting, setCompanionLighting] = useState<string>('')
   const [character, setCharacter] = useState<CharacterConfig>({
@@ -280,7 +316,7 @@ export default function PromptGenerator() {
     eyeColor: 'blue',
     skinTone: 'light',
     clothing: [],
-    expression: 'happy',
+    expression: '',
     pose: ['standing'],
     accessories: [],
   })
@@ -361,6 +397,7 @@ export default function PromptGenerator() {
           includeAction, includeArtStyle, includeCameraAngle,
           includeLighting, includeExtraQuality,
           nsfwLevel: 'explicit', promptCount,
+          directorStyle: directorStyle !== 'none' ? directorStyle : undefined,
         }
         const result = generatePrompts(config)
         setPrompts(result)
@@ -370,14 +407,18 @@ export default function PromptGenerator() {
         setIsGenerating(false)
       }
     }, 150)
-  }, [model, mode, scene, character, companionTheme, companionLighting, includeAction, includeArtStyle, includeCameraAngle, includeLighting, includeExtraQuality, promptCount])
+  }, [model, mode, scene, character, companionTheme, companionLighting, includeAction, includeArtStyle, includeCameraAngle, includeLighting, includeExtraQuality, promptCount, directorStyle])
 
   const handleQuickRandom = useCallback(() => {
     setIsGenerating(true)
     setTimeout(() => {
       try {
-        // Pass the user's custom character config so attributes carry over
-        const result = quickGenerate(model, promptCount, character)
+        const result = quickGenerate(
+          model,
+          promptCount,
+          character,
+          directorStyle !== 'none' ? directorStyle : undefined,
+        )
         setPrompts(result)
         const lastScene = result[0]?.scene
         const sceneObj = SCENES.find((s) => s.name === lastScene)
@@ -388,7 +429,7 @@ export default function PromptGenerator() {
         setIsGenerating(false)
       }
     }, 150)
-  }, [model, promptCount, character])
+  }, [model, promptCount, character, directorStyle])
 
   const handleExport = useCallback(() => {
     if (prompts.length === 0) return
@@ -411,6 +452,8 @@ export default function PromptGenerator() {
     await navigator.clipboard.writeText(text)
   }, [prompts])
 
+  const currentDirector = DIRECTOR_STYLES.find(s => s.id === directorStyle)
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="min-h-screen bg-white text-gray-900 flex flex-col">
@@ -425,7 +468,7 @@ export default function PromptGenerator() {
                 <h1 className="text-sm font-bold text-gray-900 font-mono tracking-tight uppercase">
                   prompt_forge<span className="text-gray-400">.exe</span>
                 </h1>
-                <p className="text-[10px] text-gray-500 font-mono">v2.0 // infatuated.ai</p>
+                <p className="text-[10px] text-gray-500 font-mono">v3.0 // infatuated.ai</p>
               </div>
             </div>
             <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-400 font-mono">
@@ -433,7 +476,7 @@ export default function PromptGenerator() {
               <span className="text-gray-300">|</span>
               <span>{SCENES.length} scenes</span>
               <span className="text-gray-300">|</span>
-              <span>{COMPANION_THEMES.length} themes</span>
+              <span>{DIRECTOR_STYLES.length - 1} directors</span>
             </div>
           </div>
         </header>
@@ -546,6 +589,39 @@ export default function PromptGenerator() {
           {scene && (
             <div className="rounded bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap gap-1 -mt-2">
               {SCENES.find((s) => s.id === scene)?.tags.map((tag) => (
+                <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* ── Director Style Selector ── */}
+          <div className="flex items-center gap-3">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono shrink-0 w-14">
+              <span className="flex items-center gap-1"><Clapperboard className="w-3 h-3" /> director</span>
+            </Label>
+            <Select value={directorStyle} onValueChange={setDirectorStyle}>
+              <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-gray-300 max-h-60">
+                {DIRECTOR_STYLES.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-gray-700 font-mono text-xs focus:bg-gray-100 focus:text-black">
+                    <span className="flex flex-col">
+                      <span className="font-bold">{s.label}</span>
+                      <span className="text-[10px] text-gray-400 font-normal">{s.description}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Director style tags preview */}
+          {directorStyle && directorStyle !== 'none' && currentDirector && (
+            <div className="rounded bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap gap-1 -mt-2">
+              {currentDirector.tags.map((tag) => (
                 <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
                   {tag}
                 </Badge>
@@ -741,6 +817,9 @@ export default function PromptGenerator() {
                   <p className="text-[10px] text-gray-500 font-mono leading-relaxed">
                     When generating {promptCount} prompts: <span className="text-emerald-700 font-bold">{promptCount >= 5 ? 3 : 1} SFW</span> + <span className="text-red-700 font-bold">{promptCount >= 5 ? promptCount - 3 : promptCount - 1} NSFW</span> (XXX explicit actions for infatuated.ai)
                   </p>
+                  <p className="text-[10px] text-gray-400 font-mono leading-relaxed mt-1">
+                    {"// each prompt gets unique: scene, action, camera angle, lighting, art style, mood — no repeats within batch"}
+                  </p>
                 </div>
 
                 <div className="space-y-2.5">
@@ -803,8 +882,8 @@ export default function PromptGenerator() {
                   <span className="sm:hidden">random</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="bg-gray-900 text-gray-100 border-gray-700 text-[10px] font-mono max-w-[240px] solid">
-                {"// randomizes scene + actions. your character attributes stay locked in."}
+              <TooltipContent side="bottom" className="bg-gray-900 text-gray-100 border-gray-700 text-[10px] font-mono max-w-[260px] solid">
+                {"// randomizes scene + actions + camera + lighting per prompt. your character attributes stay locked in."}
               </TooltipContent>
             </Tooltip>
           </div>
@@ -862,6 +941,9 @@ export default function PromptGenerator() {
                   <span>+</span>
                   <span className="flex items-center gap-1"><ShieldAlert className="w-3 h-3 text-red-500" /> 7 NSFW (XXX) prompts</span>
                 </div>
+                <div className="flex items-center justify-center gap-3 mt-2 text-[10px] font-mono text-gray-400">
+                  <span className="flex items-center gap-1"><Clapperboard className="w-3 h-3 text-gray-400" /> each prompt is unique: scene, action, camera, lighting, mood</span>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -870,13 +952,19 @@ export default function PromptGenerator() {
         {/* ── Footer ── */}
         <footer className="border-t-2 border-gray-900 mt-auto">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
               <p className="text-[10px] text-gray-400 font-mono">
-                prompt_forge.exe v2.0 -- AI Image Prompt Generator
+                prompt_forge.exe v3.0 // infatuated.ai
               </p>
-              <p className="text-[9px] text-gray-400 font-mono">
-                models: {MODELS.map((m) => m.name).join(' | ')}
-              </p>
+              <div className="flex items-center gap-3 text-[10px] text-gray-400 font-mono">
+                <span>{MODELS.length} models</span>
+                <span className="text-gray-300">|</span>
+                <span>{SCENES.length} scenes</span>
+                <span className="text-gray-300">|</span>
+                <span>{NSFW_ACTIONS.length} nsfw actions</span>
+                <span className="text-gray-300">|</span>
+                <span>{SFW_ACTIONS.length} sfw actions</span>
+              </div>
             </div>
           </div>
         </footer>
@@ -884,5 +972,3 @@ export default function PromptGenerator() {
     </TooltipProvider>
   )
 }
-
-

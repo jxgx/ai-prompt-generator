@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
-// Prompt Generation Engine v3.0
-// Model-tailored styles, one focal purpose, character persistence
+// Prompt Generation Engine v4.0
+// Director style weights, pool-based diversity, per-prompt randomization
+// No repeats within a batch: scene, action, camera, lighting, art style
 // ──────────────────────────────────────────────
 
 import {
@@ -15,6 +16,8 @@ import {
   COMPANION_THEMES,
   EXTRA_QUALITY_TAGS,
   EXTRA_NEGATIVE_TAGS,
+  DIRECTOR_STYLES,
+  MOODS,
   pickRandom,
   pickOne,
   shuffleArray,
@@ -57,6 +60,7 @@ export interface GeneratorConfig {
   nsfwLevel: "safe" | "suggestive" | "explicit";
   customSubject?: string;
   promptCount: number;
+  directorStyle?: string;
 }
 
 export interface GeneratedPrompt {
@@ -72,6 +76,18 @@ export interface GeneratedPrompt {
   seed?: number;
   isNsfw: boolean;
   actionLabel?: string;
+}
+
+// ─── Pool Helper: creates a no-repeat pool ────
+
+function createPool<T>(arr: T[], count: number): T[] {
+  // Shuffle the array and take `count` items, cycling if needed
+  const shuffled = shuffleArray(arr);
+  const result: T[] = [];
+  for (let i = 0; i < count; i++) {
+    result.push(shuffled[i % shuffled.length]);
+  }
+  return result;
 }
 
 // ─── Helper: resolve tags from attribute IDs ──
@@ -90,16 +106,20 @@ function resolveAttributeTags(
   });
 }
 
-// ─── Core Generator with SFW/NSFW Split ──────
+// ─── Resolve director style tags ─────────────
+
+function getDirectorStyleTags(directorStyleId: string | undefined): string[] {
+  if (!directorStyleId || directorStyleId === "none") return [];
+  const style = DIRECTOR_STYLES.find((s) => s.id === directorStyleId);
+  return style?.tags || [];
+}
+
+// ─── Core Generator with Diversity Engine ─────
 
 export function generatePrompts(config: GeneratorConfig): GeneratedPrompt[] {
   const model = MODELS.find((m) => m.id === config.model);
   if (!model) throw new Error(`Model not found: ${config.model}`);
 
-  const scene = SCENES.find((s) => s.id === config.scene);
-  if (!scene) throw new Error(`Scene not found: ${config.scene}`);
-
-  const prompts: GeneratedPrompt[] = [];
   const count = config.promptCount;
 
   // Calculate SFW/NSFW split (3:7 ratio for >= 5 prompts)
@@ -114,13 +134,49 @@ export function generatePrompts(config: GeneratorConfig): GeneratedPrompt[] {
     nsfwCount = count - 1;
   } else {
     sfwCount = 1;
-    nsfwCount = count - 1;
+    nsfwCount = Math.max(0, count - 1);
   }
 
-  // Generate SFW prompts — ONE focal action per prompt
+  // Director style tags (injected into every prompt if set)
+  const directorTags = getDirectorStyleTags(config.directorStyle);
+
+  // ── POOL-BASED DIVERSITY ──
+  // Create shuffled pools so each prompt gets a unique item (no repeats within batch)
+
+  // Scene: use the selected scene (in generate mode, scene is fixed by user)
+  const scene = SCENES.find((s) => s.id === config.scene);
+  if (!scene) throw new Error(`Scene not found: ${config.scene}`);
+
+  // SFW actions pool — unique per prompt
+  const sfwActionPool = createPool(SFW_ACTIONS, sfwCount);
+  // NSFW actions pool — unique per prompt
+  const nsfwActionPool = createPool(NSFW_ACTIONS, nsfwCount);
+
+  // Camera angle pool — unique across all prompts
+  const cameraPool = createPool(CAMERA_ANGLES, count);
+  // Lighting pool — unique across all prompts (but leave room for companion override)
+  const lightingPool = createPool(LIGHTING_OPTIONS, count);
+  // Art style pool — unique across all prompts
+  const artStylePool = createPool(ART_STYLES, count);
+  // Mood pool — unique across all prompts
+  const moodPool = createPool(MOODS, count);
+
+  const prompts: GeneratedPrompt[] = [];
+  let poolIndex = 0;
+
+  // Generate SFW prompts — ONE focal action per prompt, unique camera/lighting/art
   for (let i = 0; i < sfwCount; i++) {
-    const sfwAction = pickOne(SFW_ACTIONS);
-    const positive = buildPositivePrompt(config, model, scene, false, sfwAction);
+    const sfwAction = sfwActionPool[i];
+    const camera = cameraPool[poolIndex];
+    const lighting = lightingPool[poolIndex];
+    const artStyle = artStylePool[poolIndex];
+    const mood = moodPool[poolIndex];
+    poolIndex++;
+
+    const positive = buildPositivePrompt(
+      config, model, scene, false, sfwAction,
+      camera, lighting, artStyle, mood, directorTags
+    );
     const negative = buildNegativePrompt(config, model);
 
     prompts.push({
@@ -139,10 +195,19 @@ export function generatePrompts(config: GeneratorConfig): GeneratedPrompt[] {
     });
   }
 
-  // Generate NSFW prompts — ONE explicit action per prompt
+  // Generate NSFW prompts — ONE explicit action per prompt, unique everything
   for (let i = 0; i < nsfwCount; i++) {
-    const nsfwAction = pickOne(NSFW_ACTIONS);
-    const positive = buildPositivePrompt(config, model, scene, true, nsfwAction);
+    const nsfwAction = nsfwActionPool[i];
+    const camera = cameraPool[poolIndex];
+    const lighting = lightingPool[poolIndex];
+    const artStyle = artStylePool[poolIndex];
+    const mood = moodPool[poolIndex];
+    poolIndex++;
+
+    const positive = buildPositivePrompt(
+      config, model, scene, true, nsfwAction,
+      camera, lighting, artStyle, mood, directorTags
+    );
     const negative = buildNegativePrompt(config, model);
 
     prompts.push({
@@ -172,7 +237,12 @@ function buildPositivePrompt(
   model: ModelConfig,
   scene: Scene,
   nsfw: boolean,
-  focalAction: { id: string; label: string; tags: string[] } | null
+  focalAction: { id: string; label: string; tags: string[] } | null,
+  camera: { id: string; label: string; tags: string[] },
+  lighting: { id: string; label: string; tags: string[] },
+  artStyle: { id: string; label: string; tags: string[] },
+  mood: string,
+  directorTags: string[],
 ): string {
   const tags: string[] = [];
 
@@ -193,11 +263,11 @@ function buildPositivePrompt(
   if (scene.lighting && scene.lighting.length > 0) {
     tags.push(pickOne(scene.lighting));
   }
-  if (scene.mood && scene.mood.length > 0) {
-    tags.push(pickOne(scene.mood));
-  }
 
-  // 4. Companion theme tags
+  // 4. Mood — from pool, ensuring diversity
+  tags.push(mood);
+
+  // 5. Companion theme tags
   if (config.mode === "companion" && config.companionTheme) {
     const theme = COMPANION_THEMES.find((t) => t.id === config.companionTheme);
     if (theme) {
@@ -205,50 +275,50 @@ function buildPositivePrompt(
     }
   }
 
-  // 5. ONE focal action — the core purpose of the prompt
-  // This is the single focused expression: one NSFW act OR one SFW activity
+  // 6. ONE focal action — the core purpose of the prompt
   if (config.includeAction && focalAction) {
     tags.push(...focalAction.tags);
   }
 
-  // 6. Art style — always realism-focused (no illustration styles)
+  // 7. Director style — injected into EVERY prompt when selected
+  if (directorTags.length > 0) {
+    tags.push(...directorTags);
+  }
+
+  // 8. Art style — unique per prompt from pool
   if (config.includeArtStyle) {
-    // Default: always add realism base for non-anime models
     if (model.promptStyle !== "pony" && model.promptStyle !== "illustrious") {
       tags.push("photorealistic", "realistic");
     }
-    const style = pickOne(ART_STYLES);
-    tags.push(...style.tags);
+    tags.push(...artStyle.tags);
   }
 
-  // 7. Camera angle
+  // 9. Camera angle — unique per prompt from pool
   if (config.includeCameraAngle) {
-    const cam = pickOne(CAMERA_ANGLES);
-    tags.push(...cam.tags);
+    tags.push(...camera.tags);
   }
 
-  // 8. Lighting
+  // 10. Lighting — unique per prompt from pool (or user override in companion mode)
   if (config.includeLighting && config.companionLighting) {
-    const light = LIGHTING_OPTIONS.find((l) => l.id === config.companionLighting);
-    if (light) {
-      tags.push(...light.tags);
+    const userLight = LIGHTING_OPTIONS.find((l) => l.id === config.companionLighting);
+    if (userLight) {
+      tags.push(...userLight.tags);
     }
   } else if (config.includeLighting) {
-    const light = pickOne(LIGHTING_OPTIONS);
-    tags.push(...light.tags);
+    tags.push(...lighting.tags);
   }
 
-  // 9. Extra quality tags
+  // 11. Extra quality tags
   if (config.includeExtraQuality) {
     tags.push(...pickRandom(EXTRA_QUALITY_TAGS, 4));
   }
 
-  // 10. Quality tags (append if model doesn't prepend)
+  // 12. Quality tags (append if model doesn't prepend)
   if (!model.prependQuality) {
     tags.push(...model.qualityTags);
   }
 
-  // Format based on model style — this is the key differentiator
+  // Format based on model style
   return formatPromptForModel(tags, model);
 }
 
@@ -260,37 +330,22 @@ function formatPromptForModel(tags: string[], model: ModelConfig): string {
 
   switch (model.promptStyle) {
     case "danbooru":
-      // SD 1.5 — Danbooru tags: comma-separated, weighted emphasis on character and quality
       return clean.join(", ");
-
     case "pony":
-      // Pony V6 XL — score system + anime tags, comma-separated
       return clean.join(", ");
-
     case "illustrious":
-      // Illustrious XL — detailed anime tags, comma-separated, long descriptions work
       return clean.join(", ");
-
     case "chroma":
-      // Chroma — vibrant tags, comma-separated
       return clean.join(", ");
-
     case "zimage":
-      // Z-Image — natural language descriptions, more flowing
       return clean.join(", ");
-
     case "natural":
     default:
-      // SDXL, XL Porn — natural language, flowing descriptive sentences
-      // Format: quality tags first, then a natural-language description of the scene
       return formatAsNaturalLanguage(clean, model);
-
-    // For SDXL and XL Porn, we build more sentence-like prompts
   }
 }
 
 function formatAsNaturalLanguage(tags: string[], model: ModelConfig): string {
-  // Separate quality/meta tags from descriptive tags
   const qualityMeta = new Set([
     "masterpiece", "best quality", "highly detailed", "8k resolution",
     "professional photography", "sharp focus", "cinematic lighting",
@@ -314,6 +369,9 @@ function formatAsNaturalLanguage(tags: string[], model: ModelConfig): string {
     "detailed face", "detailed eyes", "detailed skin",
     "symmetrical face", "beautiful detailed eyes",
     "no artifacts", "clean image", "professional quality",
+    "vibrant colors", "rich colors", "colorful",
+    // Director style meta tags
+    "Helmut Newton style", "Terry Richardson style", "Nicholas Winding Refn style",
   ]);
 
   const qualityTags: string[] = [];
@@ -327,7 +385,6 @@ function formatAsNaturalLanguage(tags: string[], model: ModelConfig): string {
     }
   }
 
-  // Build: quality prefix, then descriptive tags joined naturally
   const prefix = qualityTags.join(", ");
   const description = descriptiveTags.join(", ");
 
@@ -343,7 +400,6 @@ function buildCompanionSubjectTags(
   focalAction: { id: string; label: string; tags: string[] } | null
 ): string[] {
   const tags: string[] = [];
-
   tags.push("POV");
 
   if (config.character.expression) {
@@ -354,52 +410,8 @@ function buildCompanionSubjectTags(
     tags.push(...resolveAttributeTags("pose", config.character.pose));
   }
 
-  // ONE focal companion interaction — driven by the action passed in
-  if (nsfw) {
-    const nsfwCompanionActions = [
-      "kissing viewer passionately",
-      "pressing body against viewer",
-      "straddling viewer",
-      "whispering seductively to viewer",
-      "looking at viewer with bedroom eyes",
-      "sitting on viewer's lap",
-      "crawling toward viewer on bed",
-      "pulling viewer close",
-      "taking viewer's hand and placing it on body",
-      "undressing in front of viewer",
-      "lying in bed inviting viewer",
-      "biting lip while looking at viewer",
-      "giving viewer a lap dance",
-      "pinning viewer against wall",
-    ];
-    // Use focal action tags if available, otherwise pick one
-    if (focalAction) {
-      tags.push(...focalAction.tags);
-    } else {
-      tags.push(pickOne(nsfwCompanionActions));
-    }
-  } else {
-    const sfwCompanionActions = [
-      "talking to viewer",
-      "making eye contact with viewer",
-      "interacting with viewer",
-      "leaning toward viewer",
-      "reaching out to viewer",
-      "embracing viewer",
-      "whispering to viewer",
-      "looking lovingly at viewer",
-      "smiling at viewer",
-      "kissing viewer on cheek",
-      "holding hands with viewer",
-      "cuddling with viewer",
-      "sitting next to viewer",
-      "leaning head on viewer's shoulder",
-    ];
-    if (focalAction) {
-      tags.push(...focalAction.tags);
-    } else {
-      tags.push(pickOne(sfwCompanionActions));
-    }
+  if (focalAction) {
+    tags.push(...focalAction.tags);
   }
 
   return tags;
@@ -457,18 +469,24 @@ export function exportPromptsAsText(prompts: GeneratedPrompt[]): string {
     .join("\n\n");
 }
 
-// ─── Quick Generate (Random Everything BUT keeps character) ───────
-// User's custom physical attributes carry over to all random prompts
+// ─── Quick Generate (FULL DIVERSITY PER PROMPT) ──
+// Each prompt in the batch gets a DIFFERENT:
+//   - scene
+//   - action (SFW or NSFW)
+//   - camera angle
+//   - lighting
+//   - art style
+//   - mood
+// The ONLY constant is the user's character attributes.
 
 export function quickGenerate(
   modelId: string,
   count: number = 10,
-  existingCharacter?: CharacterConfig
+  existingCharacter?: CharacterConfig,
+  directorStyle?: string,
 ): GeneratedPrompt[] {
   const model = MODELS.find((m) => m.id === modelId);
   if (!model) throw new Error(`Model not found: ${modelId}`);
-
-  const randomScene = pickOne(SCENES);
 
   // Use existing character config if provided, otherwise randomize
   const character: CharacterConfig = existingCharacter
@@ -488,10 +506,36 @@ export function quickGenerate(
         accessories: pickRandom(CHARACTER_ATTRIBUTES.find((a) => a.id === "accessories")!.options, 2).map((o) => o.id),
       };
 
-  return generatePrompts({
+  // Calculate SFW/NSFW split
+  let sfwCount: number;
+  let nsfwCount: number;
+  if (count >= 5) {
+    sfwCount = 3;
+    nsfwCount = count - 3;
+  } else if (count >= 3) {
+    sfwCount = 1;
+    nsfwCount = count - 1;
+  } else {
+    sfwCount = 1;
+    nsfwCount = Math.max(0, count - 1);
+  }
+
+  // Director style tags
+  const directorTags = getDirectorStyleTags(directorStyle);
+
+  // ── POOL-BASED: each prompt gets a UNIQUE everything ──
+  const scenePool = createPool(SCENES, count);
+  const sfwActionPool = createPool(SFW_ACTIONS, sfwCount);
+  const nsfwActionPool = createPool(NSFW_ACTIONS, nsfwCount);
+  const cameraPool = createPool(CAMERA_ANGLES, count);
+  const lightingPool = createPool(LIGHTING_OPTIONS, count);
+  const artStylePool = createPool(ART_STYLES, count);
+  const moodPool = createPool(MOODS, count);
+
+  const config: GeneratorConfig = {
     model: modelId,
     mode: "custom",
-    scene: randomScene.id,
+    scene: "", // not used — we build per-prompt
     character,
     includeAction: true,
     includeArtStyle: true,
@@ -500,5 +544,76 @@ export function quickGenerate(
     includeExtraQuality: true,
     nsfwLevel: "explicit",
     promptCount: count,
-  });
+    directorStyle,
+  };
+
+  const prompts: GeneratedPrompt[] = [];
+  let poolIndex = 0;
+
+  // Generate SFW prompts
+  for (let i = 0; i < sfwCount; i++) {
+    const scene = scenePool[poolIndex];
+    const action = sfwActionPool[i];
+    const camera = cameraPool[poolIndex];
+    const lighting = lightingPool[poolIndex];
+    const artStyle = artStylePool[poolIndex];
+    const mood = moodPool[poolIndex];
+    poolIndex++;
+
+    const positive = buildPositivePrompt(
+      { ...config, scene: scene.id }, model, scene, false, action,
+      camera, lighting, artStyle, mood, directorTags
+    );
+    const negative = buildNegativePrompt(config, model);
+
+    prompts.push({
+      id: `prompt-${Date.now()}-${i}`,
+      positive,
+      negative,
+      model: model.id,
+      modelName: model.name,
+      scene: scene.name,
+      steps: model.defaultSteps,
+      cfg: model.defaultCfg,
+      sampler: model.defaultSampler,
+      seed: Math.floor(Math.random() * 2147483647),
+      isNsfw: false,
+      actionLabel: action.label,
+    });
+  }
+
+  // Generate NSFW prompts
+  for (let i = 0; i < nsfwCount; i++) {
+    const scene = scenePool[poolIndex];
+    const action = nsfwActionPool[i];
+    const camera = cameraPool[poolIndex];
+    const lighting = lightingPool[poolIndex];
+    const artStyle = artStylePool[poolIndex];
+    const mood = moodPool[poolIndex];
+    poolIndex++;
+
+    const positive = buildPositivePrompt(
+      { ...config, scene: scene.id }, model, scene, true, action,
+      camera, lighting, artStyle, mood, directorTags
+    );
+    const negative = buildNegativePrompt(config, model);
+
+    prompts.push({
+      id: `prompt-${Date.now()}-${sfwCount + i}`,
+      positive,
+      negative,
+      model: model.id,
+      modelName: model.name,
+      scene: scene.name,
+      steps: model.defaultSteps,
+      cfg: model.defaultCfg,
+      sampler: model.defaultSampler,
+      seed: Math.floor(Math.random() * 2147483647),
+      isNsfw: true,
+      actionLabel: action.label,
+    });
+  }
+
+  // Shuffle the final array
+  return shuffleArray(prompts);
 }
