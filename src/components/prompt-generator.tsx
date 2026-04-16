@@ -8,7 +8,8 @@ import {
   CHARACTER_ATTRIBUTES,
   COMPANION_THEMES,
   LIGHTING_OPTIONS,
-  CAMERA_ANGLES,
+  SFW_ACTIONS,
+  NSFW_ACTIONS,
   type ModelConfig,
   type Scene,
   type CharacterAttribute,
@@ -47,11 +48,12 @@ import {
   RefreshCw,
   Dice5,
   Zap,
-  Info,
   Eye,
-  EyeOff,
   Shuffle,
   Palette,
+  Shield,
+  ShieldAlert,
+  Flame,
 } from 'lucide-react'
 
 // ─── Sub-Components ───────────────────────────
@@ -74,24 +76,24 @@ function MultiSelect({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
         {attribute.label}
         {attribute.allowMultiple && (
           <span className="ml-1 text-gray-400 normal-case tracking-normal font-normal">[multi]</span>
         )}
       </Label>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {attribute.options.map((opt) => (
           <button
             key={opt.id}
             onClick={() => toggle(opt.id)}
             className={`
-              inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-mono transition-all border
+              inline-flex items-center rounded px-2.5 py-1 text-[11px] font-mono transition-all border cursor-pointer
               ${
                 selected.includes(opt.id)
-                  ? 'bg-gray-900 text-white border-gray-900 hover:bg-black'
-                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100 hover:text-gray-900 hover:border-gray-400'
+                  ? 'bg-gray-900 text-white border-gray-900 hover:bg-black shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400'
               }
             `}
           >
@@ -113,13 +115,13 @@ function SingleSelect({
   onChange: (id: string) => void
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono block">
         {attribute.label}
       </Label>
       <Select value={selected} onValueChange={onChange}>
-        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-8 focus:ring-gray-400 focus:border-gray-500">
-          <SelectValue placeholder={`-- select --`} />
+        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500">
+          <SelectValue placeholder="-- select --" />
         </SelectTrigger>
         <SelectContent className="bg-white border-gray-300">
           {attribute.options.map((opt) => (
@@ -158,25 +160,40 @@ function PromptCard({ prompt, index }: { prompt: GeneratedPrompt; index: number 
   }
 
   return (
-    <Card className="bg-white border-gray-300 shadow-none hover:shadow-sm transition-shadow">
+    <Card className={`border shadow-none hover:shadow-sm transition-shadow ${prompt.isNsfw ? 'bg-red-50/30 border-red-200/60' : 'bg-white border-gray-300'}`}>
       <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center justify-center w-6 h-6 rounded-sm bg-gray-900 text-white text-[10px] font-mono font-bold">
+          <div className="flex items-center gap-2.5">
+            <span className={`flex items-center justify-center w-7 h-7 rounded font-mono font-bold text-[11px] ${prompt.isNsfw ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`}>
               {index + 1}
             </span>
             <div>
-              <CardTitle className="text-xs font-bold text-gray-900 font-mono">PROMPT_{String(index + 1).padStart(3, '0')}</CardTitle>
-              <CardDescription className="text-[10px] text-gray-500 font-mono mt-0">
-                {prompt.modelName}{" // "}{prompt.scene}{" // seed:"}{prompt.seed}
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xs font-bold text-gray-900 font-mono">
+                  PROMPT_{String(index + 1).padStart(3, '0')}
+                </CardTitle>
+                {prompt.isNsfw ? (
+                  <Badge className="bg-red-600 text-white text-[9px] font-mono px-1.5 py-0 hover:bg-red-700 border-0">
+                    <ShieldAlert className="w-2.5 h-2.5 mr-0.5" />
+                    NSFW
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-600 text-white text-[9px] font-mono px-1.5 py-0 hover:bg-emerald-700 border-0">
+                    <Shield className="w-2.5 h-2.5 mr-0.5" />
+                    SFW
+                  </Badge>
+                )}
+              </div>
+              <CardDescription className="text-[10px] text-gray-500 font-mono mt-0.5">
+                {prompt.modelName}{" // "}{prompt.scene}{prompt.actionLabel ? `{" // "}${prompt.actionLabel}` : ''}{" // seed:"}{prompt.seed}
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 font-mono">
+          <div className="flex items-center gap-1.5">
+            <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
               {prompt.steps} steps
             </Badge>
-            <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 font-mono">
+            <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
               cfg {prompt.cfg}
             </Badge>
           </div>
@@ -185,31 +202,31 @@ function PromptCard({ prompt, index }: { prompt: GeneratedPrompt; index: number 
       <CardContent className="space-y-2 px-4 pb-3">
         {/* Positive Prompt */}
         <div>
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">$ positive</span>
-            <button onClick={copyPositive} className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-800 transition-colors font-mono">
+            <button onClick={copyPositive} className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-800 transition-colors font-mono cursor-pointer">
               {copiedPos ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
               {copiedPos ? 'ok' : 'copy'}
             </button>
           </div>
-          <div className="rounded-sm bg-gray-50 border border-gray-200 p-2.5 text-[11px] text-gray-800 leading-relaxed font-mono break-words whitespace-pre-wrap max-h-36 overflow-y-auto custom-scrollbar">
+          <div className={`rounded border p-2.5 text-[11px] leading-relaxed font-mono break-words whitespace-pre-wrap max-h-36 overflow-y-auto custom-scrollbar ${prompt.isNsfw ? 'bg-red-50/50 border-red-100 text-gray-800' : 'bg-gray-50 border-gray-200 text-gray-800'}`}>
             {prompt.positive}
           </div>
         </div>
 
         {/* Negative Prompt (collapsible) */}
         <div>
-          <button onClick={() => setShowNegative(!showNegative)} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-700 transition-colors font-mono">
+          <button onClick={() => setShowNegative(!showNegative)} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-700 transition-colors font-mono cursor-pointer">
             {showNegative ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
             $ negative
           </button>
           {showNegative && (
             <div className="mt-1.5 relative">
-              <button onClick={copyNegative} className="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-800 transition-colors font-mono z-10 bg-gray-50 rounded-sm px-1">
+              <button onClick={copyNegative} className="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-800 transition-colors font-mono z-10 bg-gray-50 rounded px-1 cursor-pointer">
                 {copiedNeg ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 {copiedNeg ? 'ok' : 'copy'}
               </button>
-              <div className="rounded-sm bg-gray-50 border border-gray-200 p-2.5 text-[10px] text-gray-500 leading-relaxed font-mono break-words pr-14 max-h-28 overflow-y-auto custom-scrollbar">
+              <div className="rounded bg-gray-50 border border-gray-200 p-2.5 text-[10px] text-gray-500 leading-relaxed font-mono break-words pr-14 max-h-28 overflow-y-auto custom-scrollbar">
                 {prompt.negative}
               </div>
             </div>
@@ -217,7 +234,7 @@ function PromptCard({ prompt, index }: { prompt: GeneratedPrompt; index: number 
         </div>
 
         {/* Copy All Button */}
-        <button onClick={copyAll} className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-700 transition-colors font-mono pt-0.5">
+        <button onClick={copyAll} className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-700 transition-colors font-mono pt-0.5 cursor-pointer">
           <Copy className="w-3 h-3" />
           copy full prompt + settings
         </button>
@@ -262,6 +279,10 @@ export default function PromptGenerator() {
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const currentModel = useMemo(() => MODELS.find((m) => m.id === model)!, [model])
+
+  // Scene stats for header
+  const sfwCount = prompts.filter((p) => !p.isNsfw).length
+  const nsfwCount = prompts.filter((p) => p.isNsfw).length
 
   // Scenes grouped by category
   const scenesByCategory = useMemo(() => {
@@ -323,7 +344,7 @@ export default function PromptGenerator() {
           companionLighting: includeLighting ? companionLighting : undefined,
           includeAction, includeArtStyle, includeCameraAngle,
           includeLighting, includeExtraQuality,
-          nsfwLevel: 'suggestive', promptCount,
+          nsfwLevel: 'explicit', promptCount,
         }
         const result = generatePrompts(config)
         setPrompts(result)
@@ -368,7 +389,7 @@ export default function PromptGenerator() {
 
   const copyAllPrompts = useCallback(async () => {
     const text = prompts
-      .map((p, i) => `Prompt ${i + 1}:\n${p.positive}\nNegative: ${p.negative}`)
+      .map((p, i) => `[${p.isNsfw ? 'NSFW' : 'SFW'}] Prompt ${i + 1}:\n${p.positive}\nNegative: ${p.negative}`)
       .join('\n\n')
     await navigator.clipboard.writeText(text)
   }, [prompts])
@@ -380,20 +401,21 @@ export default function PromptGenerator() {
         <header className="border-b-2 border-gray-900 bg-white sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-9 h-9 rounded-sm bg-gray-900">
+              <div className="flex items-center justify-center w-9 h-9 rounded bg-gray-900">
                 <Dices className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-base font-bold text-gray-900 font-mono tracking-tight uppercase">
+                <h1 className="text-sm font-bold text-gray-900 font-mono tracking-tight uppercase">
                   prompt_forge<span className="text-gray-400">.exe</span>
                 </h1>
-                <p className="text-[10px] text-gray-500 font-mono">AI Image Prompt Generator v2.0</p>
+                <p className="text-[10px] text-gray-500 font-mono">AI Image Prompt Generator v2.0 // infatuated.ai</p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-[10px] text-gray-400 font-mono">
+            <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-400 font-mono">
               <span>[{MODELS.length} models]</span>
               <span>[{SCENES.length} scenes]</span>
               <span>[{COMPANION_THEMES.length} themes]</span>
+              <span>[{SFW_ACTIONS.length} sfw / {NSFW_ACTIONS.length} nsfw actions]</span>
             </div>
           </div>
         </header>
@@ -412,7 +434,7 @@ export default function PromptGenerator() {
                 </CardHeader>
                 <CardContent className="space-y-2.5 px-4 pb-3">
                   <Select value={model} onValueChange={setModel}>
-                    <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-8 focus:ring-gray-400">
+                    <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-gray-300">
@@ -426,7 +448,7 @@ export default function PromptGenerator() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <div className="rounded-sm bg-gray-50 border border-gray-200 p-2.5 space-y-1.5">
+                  <div className="rounded bg-gray-50 border border-gray-200 p-2.5 space-y-1.5">
                     <span className="text-[9px] text-gray-400 font-mono">{"// "}{currentModel.specialNotes}</span>
                     <div className="flex flex-wrap gap-1">
                       <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
@@ -480,7 +502,7 @@ export default function PromptGenerator() {
                 </CardHeader>
                 <CardContent className="space-y-2.5 px-4 pb-3">
                   <Select value={scene} onValueChange={setScene}>
-                    <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-8 focus:ring-gray-400">
+                    <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
                       <SelectValue placeholder="-- choose scene --" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-gray-300 max-h-80">
@@ -499,7 +521,7 @@ export default function PromptGenerator() {
                     </SelectContent>
                   </Select>
                   {scene && (
-                    <div className="rounded-sm bg-gray-50 border border-gray-200 p-2 flex flex-wrap gap-1">
+                    <div className="rounded bg-gray-50 border border-gray-200 p-2 flex flex-wrap gap-1">
                       {SCENES.find((s) => s.id === scene)?.tags.map((tag) => (
                         <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
                           {tag}
@@ -524,13 +546,13 @@ export default function PromptGenerator() {
                   </CardHeader>
                   <CardContent className="space-y-3 px-4 pb-3">
                     {/* Companion Theme */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono block">
                         <Palette className="w-3 h-3 inline mr-1" />
                         companion theme
                       </Label>
                       <Select value={companionTheme} onValueChange={setCompanionTheme}>
-                        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-8 focus:ring-gray-400">
+                        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
                           <SelectValue placeholder="-- choose theme --" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-gray-300 max-h-80">
@@ -549,7 +571,7 @@ export default function PromptGenerator() {
                         </SelectContent>
                       </Select>
                       {companionTheme && (
-                        <div className="rounded-sm bg-gray-50 border border-gray-200 p-2 flex flex-wrap gap-1">
+                        <div className="rounded bg-gray-50 border border-gray-200 p-2 flex flex-wrap gap-1">
                           {COMPANION_THEMES.find((t) => t.id === companionTheme)?.tags.map((tag) => (
                             <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
                               {tag}
@@ -560,12 +582,12 @@ export default function PromptGenerator() {
                     </div>
 
                     {/* Lighting Selector */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono block">
                         lighting
                       </Label>
                       <Select value={companionLighting} onValueChange={setCompanionLighting}>
-                        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-8 focus:ring-gray-400">
+                        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
                           <SelectValue placeholder="-- random lighting --" />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-gray-300 max-h-60">
@@ -637,7 +659,7 @@ export default function PromptGenerator() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full text-[11px] font-mono border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900 h-7"
+                            className="w-full text-[11px] font-mono border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900 h-8 cursor-pointer"
                             onClick={() => {
                               setCharacter({
                                 gender: pickOne(getAttr('gender').options).id,
@@ -681,9 +703,20 @@ export default function PromptGenerator() {
                 </CardHeader>
                 {advancedOpen && (
                   <CardContent className="space-y-3 px-4 pb-3">
+                    {/* SFW/NSFW split info */}
+                    <div className="rounded bg-gray-50 border border-gray-200 p-2.5 space-y-1">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-gray-700 uppercase tracking-wider">
+                        <Flame className="w-3 h-3" />
+                        sfw / nsfw split
+                      </div>
+                      <p className="text-[10px] text-gray-500 font-mono leading-relaxed">
+                        When generating {promptCount} prompts: <span className="text-emerald-700 font-bold">{promptCount >= 5 ? 3 : 1} SFW</span> + <span className="text-red-700 font-bold">{promptCount >= 5 ? promptCount - 3 : promptCount - 1} NSFW</span> (XXX explicit actions for infatuated.ai)
+                      </p>
+                    </div>
+
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-gray-600 font-mono">random action</Label>
+                        <Label className="text-[11px] text-gray-600 font-mono">random action (sfw/nsfw)</Label>
                         <Switch checked={includeAction} onCheckedChange={setIncludeAction} />
                       </div>
                       <div className="flex items-center justify-between">
@@ -704,7 +737,7 @@ export default function PromptGenerator() {
                       </div>
                     </div>
                     <Separator className="bg-gray-200" />
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">prompt count</Label>
                       <div className="flex gap-1.5">
                         {[5, 10, 20, 50].map((n) => (
@@ -712,10 +745,10 @@ export default function PromptGenerator() {
                             key={n}
                             onClick={() => setPromptCount(n)}
                             className={`
-                              flex-1 rounded-sm py-1 text-[11px] font-mono font-bold transition-all border
+                              flex-1 rounded py-1.5 text-[11px] font-mono font-bold transition-all border cursor-pointer
                               ${promptCount === n
-                                ? 'bg-gray-900 text-white border-gray-900'
-                                : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-100 hover:text-gray-800'
+                                ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                                : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-800'
                               }
                             `}
                           >
@@ -736,7 +769,7 @@ export default function PromptGenerator() {
                 <Button
                   onClick={handleGenerate}
                   disabled={!scene || isGenerating}
-                  className="flex-1 bg-gray-900 hover:bg-black text-white font-mono font-bold text-xs h-10 uppercase tracking-wider"
+                  className="flex-1 bg-gray-900 hover:bg-black text-white font-mono font-bold text-xs h-10 uppercase tracking-wider cursor-pointer"
                 >
                   {isGenerating ? (
                     <>
@@ -756,7 +789,7 @@ export default function PromptGenerator() {
                       onClick={handleQuickRandom}
                       disabled={isGenerating}
                       variant="outline"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900 h-10 font-mono text-xs"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900 h-10 font-mono text-xs cursor-pointer"
                     >
                       <Dice5 className="w-3.5 h-3.5 mr-1.5" />
                       <span className="hidden sm:inline">fully_random()</span>
@@ -776,15 +809,21 @@ export default function PromptGenerator() {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
                       output [{prompts.length} prompts]
                     </span>
+                    <Badge className="bg-emerald-100 text-emerald-800 text-[9px] font-mono px-1.5 py-0 border-0">
+                      {sfwCount} sfw
+                    </Badge>
+                    <Badge className="bg-red-100 text-red-800 text-[9px] font-mono px-1.5 py-0 border-0">
+                      {nsfwCount} nsfw
+                    </Badge>
                   </div>
                   <div className="flex items-center gap-3 text-[10px] font-mono text-gray-400">
-                    <button onClick={() => setShowAllNegatives(!showAllNegatives)} className="hover:text-gray-700 transition-colors">
+                    <button onClick={() => setShowAllNegatives(!showAllNegatives)} className="hover:text-gray-700 transition-colors cursor-pointer">
                       {showAllNegatives ? '[hide negatives]' : '[show negatives]'}
                     </button>
-                    <button onClick={copyAllPrompts} className="hover:text-gray-700 transition-colors">
+                    <button onClick={copyAllPrompts} className="hover:text-gray-700 transition-colors cursor-pointer">
                       [copy all]
                     </button>
-                    <button onClick={handleExport} className="hover:text-gray-700 transition-colors">
+                    <button onClick={handleExport} className="hover:text-gray-700 transition-colors cursor-pointer">
                       [export.txt]
                     </button>
                   </div>
@@ -793,7 +832,7 @@ export default function PromptGenerator() {
 
               {/* Prompt Cards */}
               {prompts.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {prompts.map((p, i) => (
                     <PromptCard key={p.id} prompt={p} index={i} />
                   ))}
@@ -807,6 +846,11 @@ export default function PromptGenerator() {
                       {"// select a model + scene, configure your character,"}
                       <br />{"// then hit generate. or use fully_random() to roll everything."}
                     </p>
+                    <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-mono text-gray-400">
+                      <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-emerald-500" /> 3 SFW prompts</span>
+                      <span>+</span>
+                      <span className="flex items-center gap-1"><ShieldAlert className="w-3 h-3 text-red-500" /> 7 NSFW (XXX) prompts</span>
+                    </div>
                   </CardContent>
                 </Card>
               )}

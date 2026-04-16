@@ -1,13 +1,14 @@
 // ──────────────────────────────────────────────
-// Prompt Generation Engine
-// Combines data into model-specific prompts
+// Prompt Generation Engine v2.0
+// SFW/NSFW split + XXX explicit actions for infatuated.ai
 // ──────────────────────────────────────────────
 
 import {
   MODELS,
   SCENES,
   CHARACTER_ATTRIBUTES,
-  ACTIONS,
+  SFW_ACTIONS,
+  NSFW_ACTIONS,
   ART_STYLES,
   CAMERA_ANGLES,
   LIGHTING_OPTIONS,
@@ -44,17 +45,17 @@ export interface CharacterConfig {
 export interface GeneratorConfig {
   model: string;
   mode: GeneratorMode;
-  scene: string; // scene id
+  scene: string;
   character: CharacterConfig;
-  companionTheme?: string; // companion theme id
-  companionLighting?: string; // lighting option id
+  companionTheme?: string;
+  companionLighting?: string;
   includeAction: boolean;
   includeArtStyle: boolean;
   includeCameraAngle: boolean;
   includeLighting: boolean;
   includeExtraQuality: boolean;
   nsfwLevel: "safe" | "suggestive" | "explicit";
-  customSubject?: string; // for companion mode
+  customSubject?: string;
   promptCount: number;
 }
 
@@ -68,7 +69,9 @@ export interface GeneratedPrompt {
   steps: number;
   cfg: number;
   sampler: string;
-  seed?: number; // user can randomize
+  seed?: number;
+  isNsfw: boolean;
+  actionLabel?: string;
 }
 
 // ─── Helper: resolve tags from attribute IDs ──
@@ -87,7 +90,7 @@ function resolveAttributeTags(
   });
 }
 
-// ─── Core Generator ───────────────────────────
+// ─── Core Generator with SFW/NSFW Split ──────
 
 export function generatePrompts(config: GeneratorConfig): GeneratedPrompt[] {
   const model = MODELS.find((m) => m.id === config.model);
@@ -97,10 +100,30 @@ export function generatePrompts(config: GeneratorConfig): GeneratedPrompt[] {
   if (!scene) throw new Error(`Scene not found: ${config.scene}`);
 
   const prompts: GeneratedPrompt[] = [];
+  const count = config.promptCount;
 
-  for (let i = 0; i < config.promptCount; i++) {
-    const positive = buildPositivePrompt(config, model, scene);
+  // Calculate SFW/NSFW split (3 SFW + rest NSFW for counts >= 5)
+  // For counts < 5: use proportional split (30% SFW, 70% NSFW, min 1 each)
+  let sfwCount: number;
+  let nsfwCount: number;
+
+  if (count >= 5) {
+    // Standard split: 3 SFW + (count - 3) NSFW
+    sfwCount = 3;
+    nsfwCount = count - 3;
+  } else if (count >= 3) {
+    sfwCount = 1;
+    nsfwCount = count - 1;
+  } else {
+    sfwCount = 1;
+    nsfwCount = count - 1;
+  }
+
+  // Generate SFW prompts
+  for (let i = 0; i < sfwCount; i++) {
+    const positive = buildPositivePrompt(config, model, scene, false);
     const negative = buildNegativePrompt(config, model);
+    const action = config.includeAction ? pickOne(SFW_ACTIONS) : null;
 
     prompts.push({
       id: `prompt-${Date.now()}-${i}`,
@@ -113,16 +136,42 @@ export function generatePrompts(config: GeneratorConfig): GeneratedPrompt[] {
       cfg: model.defaultCfg,
       sampler: model.defaultSampler,
       seed: Math.floor(Math.random() * 2147483647),
+      isNsfw: false,
+      actionLabel: action?.label || undefined,
     });
   }
 
-  return prompts;
+  // Generate NSFW prompts
+  for (let i = 0; i < nsfwCount; i++) {
+    const positive = buildPositivePrompt(config, model, scene, true);
+    const negative = buildNegativePrompt(config, model);
+    const action = config.includeAction ? pickOne(NSFW_ACTIONS) : null;
+
+    prompts.push({
+      id: `prompt-${Date.now()}-${sfwCount + i}`,
+      positive,
+      negative,
+      model: model.id,
+      modelName: model.name,
+      scene: scene.name,
+      steps: model.defaultSteps,
+      cfg: model.defaultCfg,
+      sampler: model.defaultSampler,
+      seed: Math.floor(Math.random() * 2147483647),
+      isNsfw: true,
+      actionLabel: action?.label || undefined,
+    });
+  }
+
+  // Shuffle the final array so SFW/NSFW are mixed
+  return shuffleArray(prompts);
 }
 
 function buildPositivePrompt(
   config: GeneratorConfig,
   model: ModelConfig,
-  scene: Scene
+  scene: Scene,
+  nsfw: boolean
 ): string {
   const tags: string[] = [];
 
@@ -133,10 +182,8 @@ function buildPositivePrompt(
 
   // 2. Subject / Character tags
   if (config.mode === "companion") {
-    // Companion mode: generic "you" — no specific character tags
-    tags.push(...buildCompanionSubjectTags(config));
+    tags.push(...buildCompanionSubjectTags(config, nsfw));
   } else {
-    // Custom mode: full character description
     tags.push(...buildCustomCharacterTags(config, model));
   }
 
@@ -157,10 +204,15 @@ function buildPositivePrompt(
     }
   }
 
-  // 5. Action
+  // 5. Action — use NSFW or SFW based on flag
   if (config.includeAction) {
-    const action = pickOne(ACTIONS);
-    tags.push(...action.tags);
+    if (nsfw) {
+      const action = pickOne(NSFW_ACTIONS);
+      tags.push(...action.tags);
+    } else {
+      const action = pickOne(SFW_ACTIONS);
+      tags.push(...action.tags);
+    }
   }
 
   // 6. Art style
@@ -191,7 +243,7 @@ function buildPositivePrompt(
     tags.push(...pickRandom(EXTRA_QUALITY_TAGS, 4));
   }
 
-  // 8. Quality tags (append if model doesn't prepend)
+  // 10. Quality tags (append if model doesn't prepend)
   if (!model.prependQuality) {
     tags.push(...model.qualityTags);
   }
@@ -200,11 +252,10 @@ function buildPositivePrompt(
   return formatPrompt(tags, model);
 }
 
-function buildCompanionSubjectTags(config: GeneratorConfig): string[] {
+function buildCompanionSubjectTags(config: GeneratorConfig, nsfw: boolean): string[] {
   const tags: string[] = [];
 
   // In companion mode, the "subject" is the user ("you")
-  // We add pose and expression if selected, but skip physical attributes
   tags.push("POV");
 
   if (config.character.expression) {
@@ -215,22 +266,44 @@ function buildCompanionSubjectTags(config: GeneratorConfig): string[] {
     tags.push(...resolveAttributeTags("pose", config.character.pose));
   }
 
-  // Add a random interaction/action to make it feel dynamic
-  const companionActions = [
-    "talking to viewer",
-    "making eye contact with viewer",
-    "interacting with viewer",
-    "leaning toward viewer",
-    "reaching out to viewer",
-    "embracing viewer",
-    "whispering to viewer",
-    "looking lovingly at viewer",
-    "smiling at viewer",
-    "kissing viewer",
-    "holding hands with viewer",
-    "cuddling with viewer",
-  ];
-  tags.push(pickOne(companionActions));
+  // Companion interaction actions (context-appropriate)
+  if (nsfw) {
+    const nsfwCompanionActions = [
+      "kissing viewer passionately",
+      "pressing body against viewer",
+      "straddling viewer",
+      "whispering seductively to viewer",
+      "looking at viewer with bedroom eyes",
+      "sitting on viewer's lap",
+      "crawling toward viewer on bed",
+      "pulling viewer close",
+      "taking viewer's hand and placing it on body",
+      "undressing in front of viewer",
+      "lying in bed inviting viewer",
+      "biting lip while looking at viewer",
+      "giving viewer a lap dance",
+      "pinning viewer against wall",
+    ];
+    tags.push(pickOne(nsfwCompanionActions));
+  } else {
+    const sfwCompanionActions = [
+      "talking to viewer",
+      "making eye contact with viewer",
+      "interacting with viewer",
+      "leaning toward viewer",
+      "reaching out to viewer",
+      "embracing viewer",
+      "whispering to viewer",
+      "looking lovingly at viewer",
+      "smiling at viewer",
+      "kissing viewer on cheek",
+      "holding hands with viewer",
+      "cuddling with viewer",
+      "sitting next to viewer",
+      "leaning head on viewer's shoulder",
+    ];
+    tags.push(pickOne(sfwCompanionActions));
+  }
 
   return tags;
 }
@@ -240,69 +313,20 @@ function buildCustomCharacterTags(
   model: ModelConfig
 ): string[] {
   const tags: string[] = [];
-
-  // Build ordered tag list from character config
   const char = config.character;
 
-  // Gender
-  if (char.gender) {
-    tags.push(...resolveAttributeTags("gender", char.gender));
-  }
-
-  // Age
-  if (char.age) {
-    tags.push(...resolveAttributeTags("age", char.age));
-  }
-
-  // Ethnicity
-  if (char.ethnicity) {
-    tags.push(...resolveAttributeTags("ethnicity", char.ethnicity));
-  }
-
-  // Skin tone
-  if (char.skinTone) {
-    tags.push(...resolveAttributeTags("skin-tone", char.skinTone));
-  }
-
-  // Body type
-  if (char.bodyType && char.bodyType.length > 0) {
-    tags.push(...resolveAttributeTags("body-type", char.bodyType));
-  }
-
-  // Hair color
-  if (char.hairColor) {
-    tags.push(...resolveAttributeTags("hair-color", char.hairColor));
-  }
-
-  // Hair style
-  if (char.hairStyle && char.hairStyle.length > 0) {
-    tags.push(...resolveAttributeTags("hair-style", char.hairStyle));
-  }
-
-  // Eye color
-  if (char.eyeColor) {
-    tags.push(...resolveAttributeTags("eye-color", char.eyeColor));
-  }
-
-  // Expression
-  if (char.expression) {
-    tags.push(...resolveAttributeTags("expression", char.expression));
-  }
-
-  // Pose
-  if (char.pose && char.pose.length > 0) {
-    tags.push(...resolveAttributeTags("pose", char.pose));
-  }
-
-  // Clothing
-  if (char.clothing && char.clothing.length > 0) {
-    tags.push(...resolveAttributeTags("clothing", char.clothing));
-  }
-
-  // Accessories
-  if (char.accessories && config.character.accessories?.length) {
-    tags.push(...resolveAttributeTags("accessories", config.character.accessories));
-  }
+  if (char.gender) tags.push(...resolveAttributeTags("gender", char.gender));
+  if (char.age) tags.push(...resolveAttributeTags("age", char.age));
+  if (char.ethnicity) tags.push(...resolveAttributeTags("ethnicity", char.ethnicity));
+  if (char.skinTone) tags.push(...resolveAttributeTags("skin-tone", char.skinTone));
+  if (char.bodyType && char.bodyType.length > 0) tags.push(...resolveAttributeTags("body-type", char.bodyType));
+  if (char.hairColor) tags.push(...resolveAttributeTags("hair-color", char.hairColor));
+  if (char.hairStyle && char.hairStyle.length > 0) tags.push(...resolveAttributeTags("hair-style", char.hairStyle));
+  if (char.eyeColor) tags.push(...resolveAttributeTags("eye-color", char.eyeColor));
+  if (char.expression) tags.push(...resolveAttributeTags("expression", char.expression));
+  if (char.pose && char.pose.length > 0) tags.push(...resolveAttributeTags("pose", char.pose));
+  if (char.clothing && char.clothing.length > 0) tags.push(...resolveAttributeTags("clothing", char.clothing));
+  if (char.accessories && config.character.accessories?.length) tags.push(...resolveAttributeTags("accessories", config.character.accessories));
 
   return tags;
 }
@@ -312,21 +336,14 @@ function buildNegativePrompt(
   model: ModelConfig
 ): string {
   const negatives: string[] = [...model.negativePrompts];
-
-  // Always add extra quality negatives for robustness
   negatives.push(...pickRandom(EXTRA_NEGATIVE_TAGS, 8));
-
-  // Deduplicate
   const unique = [...new Set(negatives)];
   return unique.join(", ");
 }
 
 function formatPrompt(tags: string[], model: ModelConfig): string {
-  // Remove duplicates while preserving order
   const unique = [...new Set(tags)];
-  // Remove empty strings
   const clean = unique.filter((t) => t.trim().length > 0);
-
   return clean.join(model.tagSeparator);
 }
 
@@ -338,6 +355,8 @@ export function exportPromptsAsText(prompts: GeneratedPrompt[]): string {
       let text = `--- Prompt ${i + 1} ---\n`;
       text += `Model: ${p.modelName}\n`;
       text += `Scene: ${p.scene}\n`;
+      text += `Rating: ${p.isNsfw ? "NSFW" : "SFW"}\n`;
+      if (p.actionLabel) text += `Action: ${p.actionLabel}\n`;
       text += `Steps: ${p.steps} | CFG: ${p.cfg} | Sampler: ${p.sampler}\n`;
       text += `Seed: ${p.seed}\n\n`;
       text += `Positive:\n${p.positive}\n\n`;
@@ -390,7 +409,7 @@ export function quickGenerate(modelId: string, count: number = 10): GeneratedPro
     includeCameraAngle: true,
     includeLighting: true,
     includeExtraQuality: true,
-    nsfwLevel: "suggestive",
+    nsfwLevel: "explicit",
     promptCount: count,
   });
 }

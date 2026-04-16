@@ -559,9 +559,9 @@ export const CHARACTER_ATTRIBUTES: CharacterAttribute[] = [
   },
 ];
 
-// ─── Action / Activity Tags ───────────────────
+// ─── SFW Action / Activity Tags ───────────────
 
-export const ACTIONS: { id: string; label: string; tags: string[] }[] = [
+export const SFW_ACTIONS: { id: string; label: string; tags: string[] }[] = [
   { id: "relaxing", label: "Relaxing", tags: ["relaxing", "lounging"] },
   { id: "reading", label: "Reading a Book", tags: ["reading", "holding book", "open book"] },
   { id: "dancing", label: "Dancing", tags: ["dancing", "moving gracefully"] },
@@ -573,7 +573,6 @@ export const ACTIONS: { id: string; label: string; tags: string[] }[] = [
   { id: "using-phone", label: "Using Phone", tags: ["looking at phone", "selfie", "texting"] },
   { id: "looking-out-window", label: "Looking Out Window", tags: ["looking out window", "gazing outside", "daydreaming"] },
   { id: "getting-dressed", label: "Getting Dressed", tags: ["getting dressed", "putting on clothes", "adjusting clothing"] },
-  { id: "bathtub-scene", label: "In Bathtub", tags: ["in bathtub", "bathing", "surrounded by bubbles"] },
   { id: "swimming", label: "Swimming", tags: ["swimming", "in water", "wet"] },
   { id: "shopping", label: "Shopping", tags: ["shopping", "carrying bags", "browsing"] },
   { id: "meditating", label: "Meditating", tags: ["meditating", "lotus position", "peaceful expression"] },
@@ -587,7 +586,74 @@ export const ACTIONS: { id: string; label: string; tags: string[] }[] = [
   { id: "sunbathing", label: "Sunbathing", tags: ["sunbathing", "lying in sun", "tanning"] },
   { id: "playing-game", label: "Playing Video Games", tags: ["playing video games", "holding controller", "gaming"] },
   { id: "campfire", label: "By Campfire", tags: ["by campfire", "sitting by fire", "roasting marshmallows"] },
+  { id: "selfie", label: "Taking Selfie", tags: ["taking selfie", "holding phone up", "duck face", "mirror selfie"] },
+  { id: "blowing-bubblegum", label: "Blowing Bubblegum", tags: ["blowing bubblegum", "pink bubblegum", "playful expression"] },
+  { id: "eating-ice-cream", label: "Eating Ice Cream", tags: ["eating ice cream", "ice cream cone", "licking ice cream", "playful"] },
+  { id: "stretching-morning", label: "Morning Stretch", tags: ["morning stretch", "arms raised", "yawning", "waking up", "bed head"] },
+  { id: "playing-with-hair", label: "Playing with Hair", tags: ["playing with hair", "twirling hair", "running fingers through hair"] },
+  { id: "waving", label: "Waving Hello", tags: ["waving", "hand raised", "friendly smile", "greeting"] },
+  { id: "holding-flower", label: "Holding Flower", tags: ["holding flower", "smelling flower", "flower crown", "romantic"] },
 ];
+
+// ─── NSFW XXX Explicit Action Tags ───────────
+
+export const NSFW_ACTIONS: { id: string; label: string; tags: string[] }[] = [
+  { id: "stripping", label: "Stripping", tags: ["stripping", "taking off clothes", "undressing", "removing bra", "pulling down panties"] },
+  { id: "topless", label: "Topless", tags: ["topless", "bare breasts", "exposed breasts", "no shirt", "shirt pulled up"] },
+  { id: "bottomless", label: "Bottomless", tags: ["bottomless", "no pants", "no underwear", "exposed lower body", "panties pulled down"] },
+  { id: "naked", label: "Fully Naked", tags: ["naked", "nude", "fully nude", "no clothes", "bare skin"] },
+  { id: "bathtub-nude", label: "Nude in Bathtub", tags: ["in bathtub", "nude", "naked in bath", "bathing nude", "wet skin", "soap suds on body"] },
+  { id: "teasing-undress", label: "Teasing While Undressing", tags: ["teasing", "slowly undressing", "seductive undressing", "pulling down strap", "unzipping"] },
+  { id: "lingerie-display", label: "Showing Off Lingerie", tags: ["showing lingerie", "posing in lingerie", "lingerie model pose", "adjusting bra strap", "sexy pose"] },
+  { id: "bending-over", label: "Bending Over", tags: ["bending over", "from behind", "looking back over shoulder", "arched back", "butt visible"] },
+  { id: "spread-legs", label: "Spread Legs", tags: ["spread legs", "legs apart", "lying down spread legs", "inviting pose"] },
+  { id: "touching-self", label: "Touching Self", tags: ["touching self", "masturbating", "hand between legs", "pleasuring self", "fingers inside"] },
+  { id: "fingering", label: "Fingering", tags: ["fingering", "fingers inside pussy", "masturbating", "hand in panties", "rubbing clit"] },
+  { id: "handjob", label: "Handjob", tags: ["handjob", "gripping penis", "stroking cock", "hand on dick", "wanking"] },
+  { id: "blowjob", label: "Blowjob", tags: ["blowjob", "sucking cock", "licking penis", "mouth on penis", "deepthroat", "giving head"] },
+  { id: "cunnilingus", label: "Cunnilingus", tags: ["cunnilingus", "eating pussy", "licking pussy", "face between thighs", "oral sex female"] },
+  { id: "cowgirl", label: "Cowgirl / Riding", tags: ["cowgirl", "riding cock", "woman on top", "straddling", "reverse cowgirl", "bouncing on cock"] },
+  { id: "doggystyle", label: "Doggystyle", tags: ["doggystyle", "from behind sex", "doggy style", "taking from behind", "pounding from behind"] },
+  { id: "missionary", label: "Missionary", tags: ["missionary", "missionary position", "man on top", "face to face sex", "legs wrapped around"] },
+  { id: "standing-sex", label: "Standing Sex", tags: ["standing sex", "sex standing up", "lifted against wall", "pinned against wall", "wall sex"] },
+  { id: "sixtynine", label: "69 Position", tags: ["69", "sixty-nine", "69 position", "simultaneous oral", "mutual oral sex"] },
+  { id: "threesome", label: "Threesome", tags: ["threesome", "two girls one guy", "FMF", "group sex", "three people", "spit roast"] },
+  { id: "girl-on-girl", label: "Girl on Girl", tags: ["girl on girl", "lesbian sex", "two girls kissing", "tribbing", "scissoring", "lesbian"] },
+  { id: "creampie", label: "Creampie", tags: ["creampie", "cum inside", "internal cumshot", "cum leaking from pussy", "filled with cum"] },
+  { id: "facial", label: "Facial", tags: ["facial", "cum on face", "cumshot on face", "face covered in cum", "cum in mouth"] },
+  { id: "cumshot-body", label: "Cum on Body", tags: ["cum on body", "cum on stomach", "cum on chest", "cum on breasts", "cum on ass", "cum on back"] },
+  { id: "titfuck", label: "Titfuck", tags: ["titfuck", "paizuri", "penis between breasts", "boob job", "cock between tits"] },
+  { id: "anal", label: "Anal Sex", tags: ["anal sex", "anal", "penetration from behind", "anal creampie", "butt sex"] },
+  { id: "bdsn-bondage", label: "Bondage / BDSM", tags: ["bondage", "tied up", "handcuffed", "blindfolded", "restrained", "rope bondage", "submissive"] },
+  { id: "dominant", label: "Dominant / Assertive", tags: ["dominant", "dominatrix", "assertive pose", "in control", "commanding", "goddess pose"] },
+  { id: "submissive", label: "Submissive / Obedient", tags: ["submissive", "obedient", "on knees", "begging", "looking up submissively", "collar and leash"] },
+  { id: "voyeur-candid", label: "Voyeur / Candid", tags: ["voyeur", "candid", "being watched", "peeping", "secretly watching", "caught changing"] },
+  { id: "orgasm", label: "Orgasm / Climax", tags: ["orgasm", "climax", "cumming", "ecstasy face", "eyes rolled back", "mouth open moaning", "squirming"] },
+  { id: "afterglow", label: "Sex Afterglow", tags: ["afterglow", "post-sex", "satisfied expression", "lying in bed after sex", "messy hair", "cum on body"] },
+  { id: "sex-on-bed", label: "Sex on Bed", tags: ["sex on bed", "fucking in bed", "sheets tangled", "pillows scattered", "passionate sex"] },
+  { id: "sex-in-shower", label: "Sex in Shower", tags: ["sex in shower", "shower sex", "wet bodies", "water running", "steam", "glass shower wall"] },
+  { id: "sex-on-couch", label: "Sex on Couch", tags: ["sex on couch", "fucking on sofa", "couch sex", "bent over couch", "spread on couch"] },
+  { id: "sex-against-wall", label: "Pinned Against Wall", tags: ["pinned against wall", "lifted against wall", "wall slammed", "legs wrapped around partner", "passionate wall sex"] },
+  { id: "kissing-passionate", label: "Passionate Kissing", tags: ["passionate kissing", "making out", "tongue kissing", "french kiss", "heavy kissing"] },
+  { id: "nipple-exposure", label: "Nipple Exposure", tags: ["exposed nipples", "nipples visible", "see-through shirt", "nipple poke", "wardrobe malfunction"] },
+  { id: "upskirt", label: "Upskirt", tags: ["upskirt", "looking up skirt", "panties visible", "under skirt view", "flashing panties"] },
+  { id: "pulling-aside", label: "Pulling Clothing Aside", tags: ["pulling panties aside", "pulling bra aside", "clothing pulled to side", "shifted clothing", "accessible"] },
+  { id: "bedroom-eyes", label: "Bedroom Eyes Pose", tags: ["bedroom eyes", "seductive gaze", "heavy-lidded eyes", "come-hither look", "lustful expression"] },
+  { id: "spanking", label: "Spanking", tags: ["spanking", "being spanked", "hand on ass", "red ass cheeks", "spanked", "ass slap"] },
+  { id: "face-sitting", label: "Facesitting", tags: ["facesitting", "sitting on face", "face under crotch", "smothering"] },
+  { id: "footjob", label: "Footjob", tags: ["footjob", "feet on penis", "toes on cock", "soles rubbing", "foot play"] },
+  { id: "titty-flash", label: "Flashing Breasts", tags: ["flashing breasts", "pulling up shirt", "lifting top", "revealing breasts", "sudden exposure"] },
+  { id: "pussy-flash", label: "Flashing Pussy", tags: ["flashing pussy", "lifting skirt", "spreading pussy", "exposed pussy", "showing genitals"] },
+  { id: "groping", label: "Being Groped", tags: ["being groped", "hands on breasts", "hands on ass", "being touched", "grabbed"] },
+  { id: "oil-massage", label: "Oiled Up / Massage", tags: ["oiled body", "baby oil", "glistening skin", "body massage", "oiled breasts", "oiled ass", "massage oil"] },
+  { id: "dildo-use", label: "Using Dildo / Toy", tags: ["using dildo", "vibrator", "sex toy", "riding dildo", "vibrating", "toy inside"] },
+  { id: "humping", label: "Grinding / Humping", tags: ["grinding", "dry humping", "lap dance", "writhing", "hip movements"] },
+  { id: "deep-throat", label: "Deep Throat", tags: ["deep throat", "taking all of cock", "choking on cock", "throat bulge", "gagging"] },
+  { id: "cum-swallow", label: "Cum Swallowing", tags: ["swallowing cum", "cum in mouth", "drinking cum", "cum on tongue", "swallow"] },
+];
+
+// ─── Legacy ACTIONS (kept for backward compatibility) ───
+export const ACTIONS = [...SFW_ACTIONS] as { id: string; label: string; tags: string[] }[];
 
 // ─── Art Style Tags ───────────────────────────
 
