@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Prompt Forge — AI Image Prompt Generator",
+  title: "Prompt Forge -- AI Image Prompt Generator",
   description: "Generate high-quality random prompts for Stable Diffusion, SDXL, Pony, Illustrious, Chroma, Z-Image, and more. Supports companion mode and full character customization.",
   keywords: [
     "AI prompt generator",
@@ -40,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900`}
       >
         {children}
         <Toaster />

@@ -10,6 +10,8 @@ import {
   ACTIONS,
   ART_STYLES,
   CAMERA_ANGLES,
+  LIGHTING_OPTIONS,
+  COMPANION_THEMES,
   EXTRA_QUALITY_TAGS,
   EXTRA_NEGATIVE_TAGS,
   pickRandom,
@@ -44,9 +46,12 @@ export interface GeneratorConfig {
   mode: GeneratorMode;
   scene: string; // scene id
   character: CharacterConfig;
+  companionTheme?: string; // companion theme id
+  companionLighting?: string; // lighting option id
   includeAction: boolean;
   includeArtStyle: boolean;
   includeCameraAngle: boolean;
+  includeLighting: boolean;
   includeExtraQuality: boolean;
   nsfwLevel: "safe" | "suggestive" | "explicit";
   customSubject?: string; // for companion mode
@@ -144,25 +149,44 @@ function buildPositivePrompt(
     tags.push(pickOne(scene.mood));
   }
 
-  // 4. Action
+  // 4. Companion theme tags (clothing/roleplay)
+  if (config.mode === "companion" && config.companionTheme) {
+    const theme = COMPANION_THEMES.find((t) => t.id === config.companionTheme);
+    if (theme) {
+      tags.push(...theme.tags);
+    }
+  }
+
+  // 5. Action
   if (config.includeAction) {
     const action = pickOne(ACTIONS);
     tags.push(...action.tags);
   }
 
-  // 5. Art style
+  // 6. Art style
   if (config.includeArtStyle) {
     const style = pickOne(ART_STYLES);
     tags.push(...style.tags);
   }
 
-  // 6. Camera angle
+  // 7. Camera angle
   if (config.includeCameraAngle) {
     const cam = pickOne(CAMERA_ANGLES);
     tags.push(...cam.tags);
   }
 
-  // 7. Extra quality tags
+  // 8. Lighting
+  if (config.includeLighting && config.companionLighting) {
+    const light = LIGHTING_OPTIONS.find((l) => l.id === config.companionLighting);
+    if (light) {
+      tags.push(...light.tags);
+    }
+  } else if (config.includeLighting) {
+    const light = pickOne(LIGHTING_OPTIONS);
+    tags.push(...light.tags);
+  }
+
+  // 9. Extra quality tags
   if (config.includeExtraQuality) {
     tags.push(...pickRandom(EXTRA_QUALITY_TAGS, 4));
   }
@@ -364,6 +388,7 @@ export function quickGenerate(modelId: string, count: number = 10): GeneratedPro
     includeAction: true,
     includeArtStyle: true,
     includeCameraAngle: true,
+    includeLighting: true,
     includeExtraQuality: true,
     nsfwLevel: "suggestive",
     promptCount: count,
