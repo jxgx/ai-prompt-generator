@@ -8,6 +8,7 @@ import {
   CHARACTER_ATTRIBUTES,
   COMPANION_THEMES,
   LIGHTING_OPTIONS,
+  CAMERA_ANGLES,
   DIRECTOR_STYLES,
   SFW_ACTIONS,
   NSFW_ACTIONS,
@@ -325,6 +326,8 @@ export default function PromptGenerator() {
   const [includeCameraAngle, setIncludeCameraAngle] = useState(true)
   const [includeLighting, setIncludeLighting] = useState(true)
   const [includeExtraQuality, setIncludeExtraQuality] = useState(true)
+  const [userLighting, setUserLighting] = useState<string>('')
+  const [userCameraAngle, setUserCameraAngle] = useState<string>('')
   const [showAllNegatives, setShowAllNegatives] = useState(false)
   const [prompts, setPrompts] = useState<GeneratedPrompt[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -393,7 +396,8 @@ export default function PromptGenerator() {
         const config: GeneratorConfig = {
           model, mode, scene, character,
           companionTheme: mode === 'companion' ? companionTheme : undefined,
-          companionLighting: includeLighting ? companionLighting : undefined,
+          companionLighting: (includeLighting && companionLighting) ? companionLighting : (includeLighting && userLighting) ? userLighting : undefined,
+          userCameraAngle: (includeCameraAngle && userCameraAngle) ? userCameraAngle : undefined,
           includeAction, includeArtStyle, includeCameraAngle,
           includeLighting, includeExtraQuality,
           nsfwLevel: 'explicit', promptCount,
@@ -407,7 +411,7 @@ export default function PromptGenerator() {
         setIsGenerating(false)
       }
     }, 150)
-  }, [model, mode, scene, character, companionTheme, companionLighting, includeAction, includeArtStyle, includeCameraAngle, includeLighting, includeExtraQuality, promptCount, directorStyle])
+  }, [model, mode, scene, character, companionTheme, companionLighting, userLighting, userCameraAngle, includeAction, includeArtStyle, includeCameraAngle, includeLighting, includeExtraQuality, promptCount, directorStyle])
 
   const handleQuickRandom = useCallback(() => {
     setIsGenerating(true)
@@ -418,6 +422,8 @@ export default function PromptGenerator() {
           promptCount,
           character,
           directorStyle !== 'none' ? directorStyle : undefined,
+          userLighting || undefined,
+          userCameraAngle || undefined,
         )
         setPrompts(result)
         const lastScene = result[0]?.scene
@@ -429,7 +435,7 @@ export default function PromptGenerator() {
         setIsGenerating(false)
       }
     }, 150)
-  }, [model, promptCount, character, directorStyle])
+  }, [model, promptCount, character, directorStyle, userLighting, userCameraAngle])
 
   const handleExport = useCallback(() => {
     if (prompts.length === 0) return
@@ -795,6 +801,126 @@ export default function PromptGenerator() {
 
           <Separator />
 
+          {/* ── Lighting & Camera Angle Controls ── */}
+          <div className="space-y-3">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">
+              lighting & camera
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Lighting Selector */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">lighting</Label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-gray-400 font-mono">random</span>
+                    <Switch checked={includeLighting} onCheckedChange={setIncludeLighting} className="scale-75" />
+                  </div>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center justify-between w-full bg-white border border-gray-300 rounded px-3 h-9 text-gray-800 font-mono text-xs hover:bg-gray-50 transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-500 cursor-pointer">
+                      <span className="truncate">
+                        {userLighting
+                          ? LIGHTING_OPTIONS.find(l => l.id === userLighting)?.label || userLighting
+                          : '-- random --'
+                        }
+                      </span>
+                      <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 ml-2 shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-1 bg-white border-gray-300 rounded-lg shadow-lg solid" align="start" sideOffset={4}>
+                    <div
+                      onClick={() => setUserLighting('')}
+                      className={`flex items-center px-2.5 py-2 rounded cursor-pointer transition-colors text-xs font-mono ${!userLighting ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                      -- random --
+                    </div>
+                    <Separator className="my-1" />
+                    <ScrollArea className="max-h-48">
+                      <div className="space-y-0.5">
+                        {LIGHTING_OPTIONS.map(opt => (
+                          <div
+                            key={opt.id}
+                            onClick={() => setUserLighting(userLighting === opt.id ? '' : opt.id)}
+                            className={`flex items-center px-2.5 py-2 rounded cursor-pointer transition-colors text-xs font-mono ${userLighting === opt.id ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                          >
+                            {opt.label}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Camera Angle Selector */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">camera</Label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-gray-400 font-mono">random</span>
+                    <Switch checked={includeCameraAngle} onCheckedChange={setIncludeCameraAngle} className="scale-75" />
+                  </div>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center justify-between w-full bg-white border border-gray-300 rounded px-3 h-9 text-gray-800 font-mono text-xs hover:bg-gray-50 transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-500 cursor-pointer">
+                      <span className="truncate">
+                        {userCameraAngle
+                          ? CAMERA_ANGLES.find(c => c.id === userCameraAngle)?.label || userCameraAngle
+                          : '-- random --'
+                        }
+                      </span>
+                      <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 ml-2 shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-1 bg-white border-gray-300 rounded-lg shadow-lg solid" align="start" sideOffset={4}>
+                    <div
+                      onClick={() => setUserCameraAngle('')}
+                      className={`flex items-center px-2.5 py-2 rounded cursor-pointer transition-colors text-xs font-mono ${!userCameraAngle ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                      -- random --
+                    </div>
+                    <Separator className="my-1" />
+                    <ScrollArea className="max-h-48">
+                      <div className="space-y-0.5">
+                        {CAMERA_ANGLES.map(opt => (
+                          <div
+                            key={opt.id}
+                            onClick={() => setUserCameraAngle(userCameraAngle === opt.id ? '' : opt.id)}
+                            className={`flex items-center px-2.5 py-2 rounded cursor-pointer transition-colors text-xs font-mono ${userCameraAngle === opt.id ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                          >
+                            {opt.label}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            {userLighting && includeLighting && (
+              <div className="rounded bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap gap-1">
+                {LIGHTING_OPTIONS.find(l => l.id === userLighting)?.tags.map((tag: string) => (
+                  <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {userCameraAngle && includeCameraAngle && (
+              <div className="rounded bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap gap-1">
+                {CAMERA_ANGLES.find(c => c.id === userCameraAngle)?.tags.map((tag: string) => (
+                  <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
           {/* ── Advanced Options (collapsible) ── */}
           <div>
             <button
@@ -830,14 +956,6 @@ export default function PromptGenerator() {
                   <div className="flex items-center justify-between">
                     <Label className="text-[11px] text-gray-600 font-mono">random art style</Label>
                     <Switch checked={includeArtStyle} onCheckedChange={setIncludeArtStyle} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[11px] text-gray-600 font-mono">random camera angle</Label>
-                    <Switch checked={includeCameraAngle} onCheckedChange={setIncludeCameraAngle} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[11px] text-gray-600 font-mono">random lighting</Label>
-                    <Switch checked={includeLighting} onCheckedChange={setIncludeLighting} />
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-[11px] text-gray-600 font-mono">quality boost</Label>

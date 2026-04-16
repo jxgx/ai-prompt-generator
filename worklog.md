@@ -83,7 +83,7 @@ Route (app)
 - Identical visual style to the MultiSelectDropdown for consistency
 
 ### Director Style Implementation
-- **Helmut Newton**: 15 tags — high contrast, dramatic shadows, powerful women, voyeuristic framing, B&W with selective color, fashion photography
+- **Helmut Newton**: 16 tags — high contrast **color** photography, dramatic shadows, powerful women, voyeuristic framing, vivid color, fashion photography (NO B&W)
 - **Terry Richardson**: 15 tags — harsh direct flash, washed-out colors, raw/unedited, snapshot feel, white background, intimate
 - **N.W. Refn**: 15 tags — neon-drenched, extreme color grading, atmospheric haze, slow-motion cinematic, hyper-stylized, noir
 
@@ -96,3 +96,33 @@ The pool-based approach ensures that within a batch of N prompts:
 - Each prompt gets a different art style (from pool of 11)
 - Each prompt gets a different mood (from pool of 55)
 - Character attributes remain constant across all prompts
+
+---
+Task ID: 4
+Agent: Main
+Task: Color-only Helmut Newton + Lighting/Camera Angle user controls
+
+Work Log:
+- Updated Helmut Newton director style: removed "black and white with selective color accent", "film grain" tags; added "vivid color", "rich color palette", "editorial color photography", "high contrast color photography" tags
+- Updated Newton description from "B&W with selective color" to "High contrast color photography"
+- Added "monochrome", "black and white", "grayscale", "desaturated" to ALL 7 model negative prompts
+- Added same B&W prevention to EXTRA_NEGATIVE_TAGS
+- Updated Film Noir art style: "Film Noir" -> "Film Noir (Color)", removed "high contrast black and white" tag, added "film noir style", "noir atmosphere", "chiaroscuro lighting"
+- Updated qualityMeta in prompt-generator.ts: removed "film noir" and "high contrast black and white", added "film noir style" and "noir atmosphere"
+- Added CAMERA_ANGLES import to prompt-generator.tsx
+- Added userLighting and userCameraAngle state variables
+- Created new "lighting & camera" UI section with explicit dropdown selectors for lighting and camera angle, each with a "random" toggle switch
+- Moved lighting/camera controls from buried advanced options to prominent main UI area
+- Updated GeneratorConfig interface to include userCameraAngle field
+- Updated buildPositivePrompt to respect userCameraAngle override
+- Updated quickGenerate signature to accept userLightingOverride and userCameraOverride parameters
+- Updated handleGenerate and handleQuickRandom callbacks to pass user selections
+- Removed duplicate "random camera angle" and "random lighting" switches from advanced options
+- Build verified: PASSED
+
+Stage Summary:
+- Helmut Newton is now strictly COLOR photography — no B&W references remain anywhere
+- All 7 models have B&W prevention in negative prompts + extra negatives
+- Lighting and camera angle are now prominent, always-visible user controls with dropdown selectors
+- Users can pick a specific lighting/camera or leave as "random" for pool-based randomization
+- Toggle switches next to each control allow disabling randomization entirely

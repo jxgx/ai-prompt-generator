@@ -52,6 +52,7 @@ export interface GeneratorConfig {
   character: CharacterConfig;
   companionTheme?: string;
   companionLighting?: string;
+  userCameraAngle?: string;
   includeAction: boolean;
   includeArtStyle: boolean;
   includeCameraAngle: boolean;
@@ -293,16 +294,23 @@ function buildPositivePrompt(
     tags.push(...artStyle.tags);
   }
 
-  // 9. Camera angle — unique per prompt from pool
+  // 9. Camera angle — user override or unique per prompt from pool
   if (config.includeCameraAngle) {
-    tags.push(...camera.tags);
+    if (config.userCameraAngle) {
+      const userCamera = CAMERA_ANGLES.find((c) => c.id === config.userCameraAngle);
+      if (userCamera) tags.push(...userCamera.tags);
+    } else {
+      tags.push(...camera.tags);
+    }
   }
 
-  // 10. Lighting — unique per prompt from pool (or user override in companion mode)
+  // 10. Lighting — user override, companion override, or unique per prompt from pool
   if (config.includeLighting && config.companionLighting) {
     const userLight = LIGHTING_OPTIONS.find((l) => l.id === config.companionLighting);
     if (userLight) {
       tags.push(...userLight.tags);
+    } else if (config.companionLighting) {
+      tags.push(...lighting.tags);
     }
   } else if (config.includeLighting) {
     tags.push(...lighting.tags);
@@ -359,8 +367,8 @@ function formatAsNaturalLanguage(tags: string[], model: ModelConfig): string {
     "model photoshoot", "natural photo", "candid photo", "everyday photography",
     "lifestyle photo", "street photography", "candid street shot",
     "urban photography", "portrait photography", "headshot",
-    "beauty portrait", "professional portrait", "film noir",
-    "high contrast black and white", "dramatic shadows", "vintage photo",
+    "beauty portrait", "professional portrait", "film noir style",
+    "noir atmosphere", "high contrast shadows", "dramatic shadows", "vintage photo",
     "retro style", "film photography", "aged photo", "glamour photography",
     "glamour shot", "beauty shot", "fashion photography",
     "editorial photography", "magazine cover", "fashion editorial",
@@ -484,6 +492,8 @@ export function quickGenerate(
   count: number = 10,
   existingCharacter?: CharacterConfig,
   directorStyle?: string,
+  userLightingOverride?: string,
+  userCameraOverride?: string,
 ): GeneratedPrompt[] {
   const model = MODELS.find((m) => m.id === modelId);
   if (!model) throw new Error(`Model not found: ${modelId}`);
@@ -545,6 +555,8 @@ export function quickGenerate(
     nsfwLevel: "explicit",
     promptCount: count,
     directorStyle,
+    companionLighting: userLightingOverride,
+    userCameraAngle: userCameraOverride,
   };
 
   const prompts: GeneratedPrompt[] = [];
@@ -554,8 +566,8 @@ export function quickGenerate(
   for (let i = 0; i < sfwCount; i++) {
     const scene = scenePool[poolIndex];
     const action = sfwActionPool[i];
-    const camera = cameraPool[poolIndex];
-    const lighting = lightingPool[poolIndex];
+    const camera = userCameraOverride ? CAMERA_ANGLES.find(c => c.id === userCameraOverride) || cameraPool[poolIndex] : cameraPool[poolIndex];
+    const lighting = userLightingOverride ? LIGHTING_OPTIONS.find(l => l.id === userLightingOverride) || lightingPool[poolIndex] : lightingPool[poolIndex];
     const artStyle = artStylePool[poolIndex];
     const mood = moodPool[poolIndex];
     poolIndex++;
@@ -586,8 +598,8 @@ export function quickGenerate(
   for (let i = 0; i < nsfwCount; i++) {
     const scene = scenePool[poolIndex];
     const action = nsfwActionPool[i];
-    const camera = cameraPool[poolIndex];
-    const lighting = lightingPool[poolIndex];
+    const camera = userCameraOverride ? CAMERA_ANGLES.find(c => c.id === userCameraOverride) || cameraPool[poolIndex] : cameraPool[poolIndex];
+    const lighting = userLightingOverride ? LIGHTING_OPTIONS.find(l => l.id === userLightingOverride) || lightingPool[poolIndex] : lightingPool[poolIndex];
     const artStyle = artStylePool[poolIndex];
     const mood = moodPool[poolIndex];
     poolIndex++;
