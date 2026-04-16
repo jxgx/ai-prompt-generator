@@ -151,3 +151,39 @@
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(107, 114, 128, 0.8);
 }
+
+/* ── Solid dropdown backgrounds for Radix Select / Popover ── */
+[data-radix-popper-content-wrapper] > [data-side],
+[data-radix-select-content],
+[role="listbox"],
+[role="dialog"][data-state="open"] {
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Ensure popover content panels are opaque */
+[data-radix-popper-content-wrapper] [data-state="open"] {
+  background-color: #ffffff !important;
+}
+
+/* Radix Select viewport and items */
+[data-radix-select-viewport] {
+  background: #ffffff !important;
+}
+
+[data-radix-select-item] {
+  background: #ffffff;
+}
+
+[data-radix-select-item][data-highlighted] {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+/* Checkbox items in multi-select popovers */
+[data-state="checked"] {
+  background-color: #111827 !important;
+  border-color: #111827 !important;
+}

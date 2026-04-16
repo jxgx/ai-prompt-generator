@@ -297,11 +297,21 @@ export const SCENES: Scene[] = [
   { id: "underwater", name: "Underwater", description: "Deep underwater scene", tags: ["underwater", "coral reef", "tropical fish", "sunbeams through water", "bubbles"], category: "Water", lighting: ["caustic light patterns", "deep blue ambient light"], mood: ["dreamy", "weightless"] },
   { id: "hot-spring", name: "Hot Spring", description: "Natural hot spring", tags: ["hot spring", "onsen", "steaming water", "rocks", "surrounded by nature"], category: "Water", lighting: ["steam-softened light", "moonlight"], mood: ["relaxing", "natural"] },
 
-  // ── Urban ──
+  // ── Urban / TikTok-style ──
   { id: "city-street", name: "City Street", description: "Busy urban street", tags: ["city street", "skyscrapers", "traffic", "crosswalk", "neon signs"], category: "Urban", lighting: ["street lights", "neon reflections on wet pavement"], mood: ["bustling", "urban"] },
   { id: "alley", name: "Dark Alley", description: "Shadowy urban alley", tags: ["dark alley", "brick walls", "fire escape", "dumpster", "puddles"], category: "Urban", lighting: ["single overhead light", "neon sign reflection in puddles"], mood: ["gritty", "mysterious"] },
   { id: "rooftop-party", name: "Rooftop Party", description: "Rooftop social gathering", tags: ["rooftop party", "string lights", "drinks", "city skyline backdrop", "lounge furniture"], category: "Urban", lighting: ["string lights", "city glow backdrop"], mood: ["lively", "social"] },
   { id: "subway", name: "Subway Station", description: "Underground train station", tags: ["subway station", "train tracks", "tiled walls", "bench", "fluorescent lights"], category: "Urban", lighting: ["fluorescent tubes", "train headlight"], mood: ["gritty", "underground"] },
+  { id: "dorm-room", name: "Dorm Room", description: "College dorm room, TikTok mirror selfie style", tags: ["dorm room", "twin bed", "desk", "posters on wall", "string lights", "small space"], category: "Urban", lighting: ["string lights", "warm desk lamp", "ring light"], mood: ["casual", "cozy", "youthful"] },
+  { id: "coffee-shop", name: "Coffee Shop / Cafe", description: "Trendy coffee shop interior", tags: ["coffee shop", "cafe", "latte", "laptop", "wooden table", "exposed brick", "plants"], category: "Urban", lighting: ["warm ambient light", "window light", "overhead Edison bulbs"], mood: ["cozy", "aesthetic", "productive"] },
+  { id: "car-interior", name: "Car Interior", description: "Inside a car, passenger or driver seat selfie", tags: ["car interior", "passenger seat", "steering wheel", "dashboard", "car window", "seatbelt"], category: "Urban", lighting: ["natural light through window", "golden hour through car window", "dashboard glow"], mood: ["casual", "on-the-go", "intimate"] },
+  { id: "mall-fitting-room", name: "Fitting Room / Mall", description: "Department store fitting room mirror selfie", tags: ["fitting room", "mirror selfie", "department store", "changing room", "full-length mirror"], category: "Urban", lighting: ["bright fitting room lighting", "ring light", "overhead fluorescent"], mood: ["playful", "fashionable", "confident"] },
+  { id: "bathroom-mirror", name: "Bathroom Mirror Selfie", description: "Bathroom mirror selfie, classic social media style", tags: ["bathroom mirror", "mirror selfie", "bathroom counter", "toothbrush", "skincare products", "vanity"], category: "Urban", lighting: ["bathroom lighting", "ring light reflection", "bright vanity light"], mood: ["confident", "casual", "intimate"] },
+  { id: "bedroom-selfie", name: "Bedroom Mirror Selfie", description: "Full-length mirror selfie in bedroom", tags: ["bedroom mirror", "mirror selfie", "full-length mirror", "bed in background", "clothes on floor", "vanity"], category: "Urban", lighting: ["natural window light", "ring light", "soft bedroom lighting"], mood: ["confident", "casual", "aesthetic"] },
+  { id: "laundromat", name: "Laundromat", description: "Coin laundromat aesthetic", tags: ["laundromat", "washing machines", "dryer", "folding table", "fluorescent lights", "vinyl floor"], category: "Urban", lighting: ["fluorescent overhead", "harsh clinical light"], mood: ["mundane", "aesthetic", "urban"] },
+  { id: "grocery-store", name: "Grocery Store", description: "Aisle of a grocery store", tags: ["grocery store", "supermarket aisle", "shopping cart", "products on shelves", "fluorescent lights"], category: "Urban", lighting: ["bright overhead fluorescent", "harsh retail lighting"], mood: ["everyday", "casual", "mundane"] },
+  { id: "parking-garage", name: "Parking Garage", description: "Underground or rooftop parking structure", tags: ["parking garage", "concrete pillars", "parked cars", "painted lines", "dim lighting"], category: "Urban", lighting: ["overhead sodium lights", "dim garage lighting", "car headlights"], mood: ["gritty", "urban", "mysterious"] },
+  { id: "stairwell", name: "Stairwell", description: "Apartment or building stairwell", tags: ["stairwell", "concrete stairs", "metal railing", "bare walls", "geometric lines"], category: "Urban", lighting: ["harsh overhead", "window light from landing", "shadow patterns"], mood: ["gritty", "urban", "dramatic"] },
 
   // ── Intimate ──
   { id: "candlelit-room", name: "Candlelit Room", description: "Romantic candlelit setting", tags: ["candlelit room", "many candles", "rose petals", "silk sheets"], category: "Intimate", lighting: ["warm candlelight", "soft shadows"], mood: ["romantic", "intimate"] },
@@ -659,19 +669,16 @@ export const ACTIONS = [...SFW_ACTIONS] as { id: string; label: string; tags: st
 
 export const ART_STYLES: { id: string; label: string; tags: string[] }[] = [
   { id: "photorealistic", label: "Photorealistic", tags: ["photorealistic", "realistic", "raw photo", "DSLR photo"] },
-  { id: "anime", label: "Anime", tags: ["anime style", "anime art", "anime illustration"] },
-  { id: "digital-art", label: "Digital Art", tags: ["digital art", "digital painting", "artstation"] },
-  { id: "oil-painting", label: "Oil Painting", tags: ["oil painting", "classical painting", "fine art"] },
-  { id: "watercolor", label: "Watercolor", tags: ["watercolor painting", "watercolor art", "soft washes"] },
-  { id: "concept-art", label: "Concept Art", tags: ["concept art", "matte painting", "concept design"] },
-  { id: "cinematic", label: "Cinematic", tags: ["cinematic", "cinematic lighting", "movie still", "film grain"] },
-  { id: "fantasy-art", label: "Fantasy Art", tags: ["fantasy art", "epic fantasy", "dark fantasy art"] },
-  { id: "pixel-art", label: "Pixel Art", tags: ["pixel art", "retro pixel", "16-bit"] },
-  { id: "comic", label: "Comic / Manga", tags: ["comic style", "manga", "comic book art", "cel shading"] },
-  { id: "noir", label: "Film Noir", tags: ["film noir", "high contrast black and white", "dramatic shadows"] },
-  { id: "pastel", label: "Pastel / Soft", tags: ["pastel colors", "soft lighting", "dreamy atmosphere", "ethereal"] },
-  { id: "vintage", label: "Vintage / Retro", tags: ["vintage photo", "retro style", "film photography", "aged photo"] },
   { id: "hyperrealistic", label: "Hyperrealistic", tags: ["hyperrealistic", "ultra realistic", "ultra detailed", "8k photo"] },
+  { id: "cinematic", label: "Cinematic", tags: ["cinematic", "cinematic lighting", "movie still", "film grain"] },
+  { id: "studio-photo", label: "Studio Photography", tags: ["studio photography", "professional photo shoot", "professional lighting", "model photoshoot"] },
+  { id: "natural-photo", label: "Natural / Casual Photo", tags: ["natural photo", "candid photo", "everyday photography", "lifestyle photo"] },
+  { id: "street-photo", label: "Street Photography", tags: ["street photography", "candid street shot", "urban photography"] },
+  { id: "portrait-photo", label: "Portrait Photography", tags: ["portrait photography", "headshot", "beauty portrait", "professional portrait"] },
+  { id: "noir", label: "Film Noir", tags: ["film noir", "high contrast black and white", "dramatic shadows"] },
+  { id: "vintage", label: "Vintage / Retro Photo", tags: ["vintage photo", "retro style", "film photography", "aged photo"] },
+  { id: "glamour", label: "Glamour Photography", tags: ["glamour photography", "glamour shot", "beauty shot", "fashion photography"] },
+  { id: "editorial", label: "Editorial / Magazine", tags: ["editorial photography", "magazine cover", "fashion editorial", "vogue style"] },
 ];
 
 // ─── Companion Themes ────────────────────────

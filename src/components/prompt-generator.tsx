@@ -91,7 +91,7 @@ function MultiSelectDropdown({
           <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 ml-2 shrink-0" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-2 bg-white border-gray-300 rounded-lg shadow-lg" align="start" sideOffset={4}>
+      <PopoverContent className="w-72 p-2 bg-white border-gray-300 rounded-lg shadow-lg solid" align="start" sideOffset={4}>
         <div className="flex items-center justify-between mb-2 px-1">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
             {attribute.label} <span className="text-gray-400 normal-case tracking-normal font-normal">[multi]</span>
@@ -376,7 +376,8 @@ export default function PromptGenerator() {
     setIsGenerating(true)
     setTimeout(() => {
       try {
-        const result = quickGenerate(model, promptCount)
+        // Pass the user's custom character config so attributes carry over
+        const result = quickGenerate(model, promptCount, character)
         setPrompts(result)
         const lastScene = result[0]?.scene
         const sceneObj = SCENES.find((s) => s.name === lastScene)
@@ -387,7 +388,7 @@ export default function PromptGenerator() {
         setIsGenerating(false)
       }
     }, 150)
-  }, [model, promptCount])
+  }, [model, promptCount, character])
 
   const handleExport = useCallback(() => {
     if (prompts.length === 0) return
@@ -802,8 +803,8 @@ export default function PromptGenerator() {
                   <span className="sm:hidden">random</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="bg-gray-900 text-gray-100 border-gray-700 text-[10px] font-mono max-w-[240px]">
-                {"// randomizes everything: model, scene, character, all options"}
+              <TooltipContent side="bottom" className="bg-gray-900 text-gray-100 border-gray-700 text-[10px] font-mono max-w-[240px] solid">
+                {"// randomizes scene + actions. your character attributes stay locked in."}
               </TooltipContent>
             </Tooltip>
           </div>
