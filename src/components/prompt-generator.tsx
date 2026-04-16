@@ -10,6 +10,8 @@ import {
   LIGHTING_OPTIONS,
   SFW_ACTIONS,
   NSFW_ACTIONS,
+  pickRandom,
+  pickOne,
   type ModelConfig,
   type Scene,
   type CharacterAttribute,
@@ -34,6 +36,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dices,
   Copy,
@@ -54,11 +58,12 @@ import {
   Shield,
   ShieldAlert,
   Flame,
+  ChevronsUpDown,
 } from 'lucide-react'
 
 // ─── Sub-Components ───────────────────────────
 
-function MultiSelect({
+function MultiSelectDropdown({
   attribute,
   selected,
   onChange,
@@ -67,45 +72,62 @@ function MultiSelect({
   selected: string[]
   onChange: (ids: string[]) => void
 }) {
+  const [open, setOpen] = useState(false)
   const toggle = (id: string) => {
-    if (selected.includes(id)) {
-      onChange(selected.filter((s) => s !== id))
-    } else {
-      onChange([...selected, id])
-    }
+    onChange(selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id])
   }
+  const clear = () => onChange([])
 
   return (
-    <div className="space-y-2">
-      <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-        {attribute.label}
-        {attribute.allowMultiple && (
-          <span className="ml-1 text-gray-400 normal-case tracking-normal font-normal">[multi]</span>
-        )}
-      </Label>
-      <div className="flex flex-wrap gap-1.5">
-        {attribute.options.map((opt) => (
-          <button
-            key={opt.id}
-            onClick={() => toggle(opt.id)}
-            className={`
-              inline-flex items-center rounded px-2.5 py-1 text-[11px] font-mono transition-all border cursor-pointer
-              ${
-                selected.includes(opt.id)
-                  ? 'bg-gray-900 text-white border-gray-900 hover:bg-black shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400'
-              }
-            `}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="flex items-center justify-between w-full bg-white border border-gray-300 rounded px-3 h-9 text-gray-800 font-mono text-xs hover:bg-gray-50 transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-500 cursor-pointer">
+          <span className="truncate">
+            {selected.length > 0
+              ? `${attribute.label}: ${selected.length} selected`
+              : `-- ${attribute.label.toLowerCase()} --`
+            }
+          </span>
+          <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400 ml-2 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2 bg-white border-gray-300 rounded-lg shadow-lg" align="start" sideOffset={4}>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+            {attribute.label} <span className="text-gray-400 normal-case tracking-normal font-normal">[multi]</span>
+          </span>
+          {selected.length > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); clear() }}
+              className="text-[10px] text-gray-400 hover:text-red-500 font-mono transition-colors cursor-pointer"
+            >
+              clear
+            </button>
+          )}
+        </div>
+        <ScrollArea className="max-h-48">
+          <div className="space-y-0.5">
+            {attribute.options.map(opt => (
+              <label
+                key={opt.id}
+                className="flex items-center gap-2.5 px-1.5 py-1.5 rounded hover:bg-gray-50 cursor-pointer transition-colors"
+              >
+                <Checkbox
+                  checked={selected.includes(opt.id)}
+                  onCheckedChange={() => toggle(opt.id)}
+                  className="w-3.5 h-3.5 border-gray-300 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900"
+                />
+                <span className="text-xs font-mono text-gray-700 select-none">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   )
 }
 
-function SingleSelect({
+function SingleSelectDropdown({
   attribute,
   selected,
   onChange,
@@ -115,23 +137,18 @@ function SingleSelect({
   onChange: (id: string) => void
 }) {
   return (
-    <div className="space-y-2">
-      <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono block">
-        {attribute.label}
-      </Label>
-      <Select value={selected} onValueChange={onChange}>
-        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500">
-          <SelectValue placeholder="-- select --" />
-        </SelectTrigger>
-        <SelectContent className="bg-white border-gray-300">
-          {attribute.options.map((opt) => (
-            <SelectItem key={opt.id} value={opt.id} className="text-gray-800 font-mono text-xs focus:bg-gray-100 focus:text-black">
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={selected} onValueChange={onChange}>
+      <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500">
+        <SelectValue placeholder={`-- ${attribute.label.toLowerCase()} --`} />
+      </SelectTrigger>
+      <SelectContent className="bg-white border-gray-300">
+        {attribute.options.map(opt => (
+          <SelectItem key={opt.id} value={opt.id} className="text-gray-800 font-mono text-xs focus:bg-gray-100 focus:text-black">
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -275,7 +292,6 @@ export default function PromptGenerator() {
   const [showAllNegatives, setShowAllNegatives] = useState(false)
   const [prompts, setPrompts] = useState<GeneratedPrompt[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
-  const [characterSectionOpen, setCharacterSectionOpen] = useState(true)
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const currentModel = useMemo(() => MODELS.find((m) => m.id === model)!, [model])
@@ -396,471 +412,463 @@ export default function PromptGenerator() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="min-h-screen bg-white text-gray-900">
-        {/* Header */}
+      <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+        {/* ── Sticky Header ── */}
         <header className="border-b-2 border-gray-900 bg-white sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-9 h-9 rounded bg-gray-900">
-                <Dices className="w-4 h-4 text-white" />
+              <div className="flex items-center justify-center w-8 h-8 rounded bg-gray-900">
+                <Dices className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
                 <h1 className="text-sm font-bold text-gray-900 font-mono tracking-tight uppercase">
                   prompt_forge<span className="text-gray-400">.exe</span>
                 </h1>
-                <p className="text-[10px] text-gray-500 font-mono">AI Image Prompt Generator v2.0 // infatuated.ai</p>
+                <p className="text-[10px] text-gray-500 font-mono">v2.0 // infatuated.ai</p>
               </div>
             </div>
             <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-400 font-mono">
-              <span>[{MODELS.length} models]</span>
-              <span>[{SCENES.length} scenes]</span>
-              <span>[{COMPANION_THEMES.length} themes]</span>
-              <span>[{SFW_ACTIONS.length} sfw / {NSFW_ACTIONS.length} nsfw actions]</span>
+              <span>{MODELS.length} models</span>
+              <span className="text-gray-300">|</span>
+              <span>{SCENES.length} scenes</span>
+              <span className="text-gray-300">|</span>
+              <span>{COMPANION_THEMES.length} themes</span>
             </div>
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* ── Left Panel: Controls ── */}
-            <div className="lg:col-span-5 xl:col-span-4 space-y-3">
-              {/* Model Selector */}
-              <Card className="bg-white border-gray-300 shadow-none">
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono flex items-center gap-1.5">
-                    <Settings2 className="w-3 h-3" />
-                    model
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2.5 px-4 pb-3">
-                  <Select value={model} onValueChange={setModel}>
-                    <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-gray-300">
-                      {MODELS.map((m) => (
-                        <SelectItem key={m.id} value={m.id} className="text-gray-800 font-mono text-xs focus:bg-gray-100 focus:text-black">
-                          <span className="flex flex-col">
-                            <span className="font-bold">{m.name}</span>
-                            <span className="text-[10px] text-gray-400 font-normal">{m.description}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="rounded bg-gray-50 border border-gray-200 p-2.5 space-y-1.5">
-                    <span className="text-[9px] text-gray-400 font-mono">{"// "}{currentModel.specialNotes}</span>
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
-                        {currentModel.defaultSteps} steps
-                      </Badge>
-                      <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
-                        cfg {currentModel.defaultCfg}
-                      </Badge>
-                      <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
-                        {currentModel.defaultSampler}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* ── Main Content (single column, top to bottom) ── */}
+        <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
 
-              {/* Mode Toggle */}
-              <Card className="bg-white border-gray-300 shadow-none">
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono flex items-center gap-1.5">
-                    <User className="w-3 h-3" />
-                    mode
-                  </CardTitle>
-                  <CardDescription className="text-[10px] text-gray-400 font-mono">
-                    {mode === 'companion'
-                      ? '// generic "you" subject for AI companion platforms'
-                      : '// full character attribute control'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="px-4 pb-3">
-                  <Tabs value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 bg-gray-100 h-8 border border-gray-200">
-                      <TabsTrigger value="companion" className="text-[11px] font-mono data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-none">
-                        companion
-                      </TabsTrigger>
-                      <TabsTrigger value="custom" className="text-[11px] font-mono data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-none">
-                        custom
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </CardContent>
-              </Card>
-
-              {/* Scene / Theme Selector */}
-              <Card className="bg-white border-gray-300 shadow-none">
-                <CardHeader className="pb-2 pt-3 px-4">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono flex items-center gap-1.5">
-                    <Eye className="w-3 h-3" />
-                    scene / theme
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2.5 px-4 pb-3">
-                  <Select value={scene} onValueChange={setScene}>
-                    <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
-                      <SelectValue placeholder="-- choose scene --" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-gray-300 max-h-80">
-                      {Object.entries(scenesByCategory).map(([category, scenes]) => (
-                        <SelectGroup key={category}>
-                          <SelectLabel className="text-[10px] text-gray-900 uppercase tracking-widest font-bold px-2 py-1 font-mono">
-                            {"// "}{category}
-                          </SelectLabel>
-                          {scenes.map((s) => (
-                            <SelectItem key={s.id} value={s.id} className="text-gray-700 font-mono text-xs focus:bg-gray-100 focus:text-black">
-                              {s.name}{" "}<span className="text-gray-400">{"-- "}{s.description}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {scene && (
-                    <div className="rounded bg-gray-50 border border-gray-200 p-2 flex flex-wrap gap-1">
-                      {SCENES.find((s) => s.id === scene)?.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Companion Mode: Theme + Lighting + Expression + Pose */}
-              {mode === 'companion' && (
-                <Card className="bg-white border-gray-300 shadow-none">
-                  <CardHeader className="pb-2 pt-3 px-4">
-                    <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono flex items-center gap-1.5">
-                      <Users className="w-3 h-3" />
-                      companion config
-                    </CardTitle>
-                    <CardDescription className="text-[10px] text-gray-400 font-mono">
-                      {"// set companion appearance theme + lighting"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3 px-4 pb-3">
-                    {/* Companion Theme */}
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono block">
-                        <Palette className="w-3 h-3 inline mr-1" />
-                        companion theme
-                      </Label>
-                      <Select value={companionTheme} onValueChange={setCompanionTheme}>
-                        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
-                          <SelectValue placeholder="-- choose theme --" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white border-gray-300 max-h-80">
-                          {Object.entries(themesByCategory).map(([category, themes]) => (
-                            <SelectGroup key={category}>
-                              <SelectLabel className="text-[10px] text-gray-900 uppercase tracking-widest font-bold px-2 py-1 font-mono">
-                                {"// "}{category}
-                              </SelectLabel>
-                              {themes.map((t) => (
-                                <SelectItem key={t.id} value={t.id} className="text-gray-700 font-mono text-xs focus:bg-gray-100 focus:text-black">
-                                  {t.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {companionTheme && (
-                        <div className="rounded bg-gray-50 border border-gray-200 p-2 flex flex-wrap gap-1">
-                          {COMPANION_THEMES.find((t) => t.id === companionTheme)?.tags.map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Lighting Selector */}
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono block">
-                        lighting
-                      </Label>
-                      <Select value={companionLighting} onValueChange={setCompanionLighting}>
-                        <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400">
-                          <SelectValue placeholder="-- random lighting --" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white border-gray-300 max-h-60">
-                          {LIGHTING_OPTIONS.map((l) => (
-                            <SelectItem key={l.id} value={l.id} className="text-gray-700 font-mono text-xs focus:bg-gray-100 focus:text-black">
-                              {l.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Separator className="bg-gray-200" />
-
-                    {/* Expression + Pose (minimal) */}
-                    <SingleSelect
-                      attribute={getAttr('expression')}
-                      selected={character.expression || ''}
-                      onChange={(v) => setSingleAttr('expression', v)}
-                    />
-                    <MultiSelect
-                      attribute={getAttr('pose')}
-                      selected={character.pose || []}
-                      onChange={(ids) => setCharacter((prev) => ({ ...prev, pose: ids }))}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Custom Mode: Full Character Customization */}
-              {mode === 'custom' && (
-                <Card className="bg-white border-gray-300 shadow-none">
-                  <CardHeader
-                    className="pb-2 pt-3 px-4 cursor-pointer"
-                    onClick={() => setCharacterSectionOpen(!characterSectionOpen)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3" />
-                        character attributes
-                      </CardTitle>
-                      {characterSectionOpen ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
-                    </div>
-                  </CardHeader>
-                  {characterSectionOpen && (
-                    <CardContent className="space-y-3 px-4 pb-3">
-                      <ScrollArea className="max-h-[500px] pr-2 custom-scrollbar">
-                        <div className="space-y-3 pb-2">
-                          {['gender', 'age', 'ethnicity', 'hair-color', 'eye-color', 'skin-tone', 'expression'].map((attrId) => (
-                            <SingleSelect
-                              key={attrId}
-                              attribute={getAttr(attrId)}
-                              selected={(character[attrIdToKey(attrId)] as string) || ''}
-                              onChange={(v) => setSingleAttr(attrId, v)}
-                            />
-                          ))}
-                          <Separator className="bg-gray-200" />
-                          {['body-type', 'hair-style', 'clothing', 'pose', 'accessories'].map((attrId) => (
-                            <MultiSelect
-                              key={attrId}
-                              attribute={getAttr(attrId)}
-                              selected={(character[attrIdToKey(attrId)] as string[]) || []}
-                              onChange={(ids) => {
-                                const key = attrIdToKey(attrId)
-                                setCharacter((prev) => ({ ...prev, [key]: ids }))
-                              }}
-                            />
-                          ))}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-[11px] font-mono border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900 h-8 cursor-pointer"
-                            onClick={() => {
-                              setCharacter({
-                                gender: pickOne(getAttr('gender').options).id,
-                                age: pickOne(getAttr('age').options).id,
-                                bodyType: pickRandom(getAttr('body-type').options, 2).map((o) => o.id),
-                                ethnicity: pickOne(getAttr('ethnicity').options).id,
-                                hairColor: pickOne(getAttr('hair-color').options).id,
-                                hairStyle: [pickOne(getAttr('hair-style').options).id],
-                                eyeColor: pickOne(getAttr('eye-color').options).id,
-                                skinTone: pickOne(getAttr('skin-tone').options).id,
-                                clothing: pickRandom(getAttr('clothing').options, 2).map((o) => o.id),
-                                expression: pickOne(getAttr('expression').options).id,
-                                pose: [pickOne(getAttr('pose').options).id],
-                                accessories: pickRandom(getAttr('accessories').options, 2).map((o) => o.id),
-                              })
-                            }}
-                          >
-                            <Shuffle className="w-3 h-3 mr-1.5" />
-                            randomize_character()
-                          </Button>
-                        </div>
-                      </ScrollArea>
-                    </CardContent>
-                  )}
-                </Card>
-              )}
-
-              {/* Advanced Options */}
-              <Card className="bg-white border-gray-300 shadow-none">
-                <CardHeader
-                  className="pb-2 pt-3 px-4 cursor-pointer"
-                  onClick={() => setAdvancedOpen(!advancedOpen)}
-                >
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono flex items-center gap-1.5">
-                      <Zap className="w-3 h-3" />
-                      generation options
-                    </CardTitle>
-                    {advancedOpen ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
-                  </div>
-                </CardHeader>
-                {advancedOpen && (
-                  <CardContent className="space-y-3 px-4 pb-3">
-                    {/* SFW/NSFW split info */}
-                    <div className="rounded bg-gray-50 border border-gray-200 p-2.5 space-y-1">
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-gray-700 uppercase tracking-wider">
-                        <Flame className="w-3 h-3" />
-                        sfw / nsfw split
-                      </div>
-                      <p className="text-[10px] text-gray-500 font-mono leading-relaxed">
-                        When generating {promptCount} prompts: <span className="text-emerald-700 font-bold">{promptCount >= 5 ? 3 : 1} SFW</span> + <span className="text-red-700 font-bold">{promptCount >= 5 ? promptCount - 3 : promptCount - 1} NSFW</span> (XXX explicit actions for infatuated.ai)
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-gray-600 font-mono">random action (sfw/nsfw)</Label>
-                        <Switch checked={includeAction} onCheckedChange={setIncludeAction} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-gray-600 font-mono">random art style</Label>
-                        <Switch checked={includeArtStyle} onCheckedChange={setIncludeArtStyle} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-gray-600 font-mono">random camera angle</Label>
-                        <Switch checked={includeCameraAngle} onCheckedChange={setIncludeCameraAngle} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-gray-600 font-mono">random lighting</Label>
-                        <Switch checked={includeLighting} onCheckedChange={setIncludeLighting} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-gray-600 font-mono">quality boost</Label>
-                        <Switch checked={includeExtraQuality} onCheckedChange={setIncludeExtraQuality} />
-                      </div>
-                    </div>
-                    <Separator className="bg-gray-200" />
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">prompt count</Label>
-                      <div className="flex gap-1.5">
-                        {[5, 10, 20, 50].map((n) => (
-                          <button
-                            key={n}
-                            onClick={() => setPromptCount(n)}
-                            className={`
-                              flex-1 rounded py-1.5 text-[11px] font-mono font-bold transition-all border cursor-pointer
-                              ${promptCount === n
-                                ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
-                                : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-800'
-                              }
-                            `}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
+          {/* ── Row 1: Model + Mode + Count ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Model Selector */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">model</Label>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-gray-300">
+                  {MODELS.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-gray-800 font-mono text-xs focus:bg-gray-100 focus:text-black">
+                      <span className="flex flex-col">
+                        <span className="font-bold">{m.name}</span>
+                        <span className="text-[10px] text-gray-400 font-normal">{m.description}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* ── Right Panel: Results ── */}
-            <div className="lg:col-span-7 xl:col-span-8 space-y-3">
-              {/* Action Bar */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  onClick={handleGenerate}
-                  disabled={!scene || isGenerating}
-                  className="flex-1 bg-gray-900 hover:bg-black text-white font-mono font-bold text-xs h-10 uppercase tracking-wider cursor-pointer"
-                >
-                  {isGenerating ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" />
-                      generating...
-                    </>
-                  ) : (
-                    <>
-                      <Dices className="w-3.5 h-3.5 mr-2" />
-                      generate {promptCount} prompts
-                    </>
-                  )}
-                </Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={handleQuickRandom}
-                      disabled={isGenerating}
-                      variant="outline"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900 h-10 font-mono text-xs cursor-pointer"
-                    >
-                      <Dice5 className="w-3.5 h-3.5 mr-1.5" />
-                      <span className="hidden sm:inline">fully_random()</span>
-                      <span className="sm:hidden">random</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-gray-900 text-gray-100 border-gray-700 text-[10px] font-mono max-w-[240px]">
-                    {"// randomizes everything: model, scene, character, all options"}
-                  </TooltipContent>
-                </Tooltip>
+            {/* Mode Toggle */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">mode</Label>
+              <Tabs value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-gray-100 h-9 border border-gray-200">
+                  <TabsTrigger value="companion" className="text-[11px] font-mono data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-none">
+                    companion
+                  </TabsTrigger>
+                  <TabsTrigger value="custom" className="text-[11px] font-mono data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-none">
+                    custom
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            {/* Prompt Count */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">count</Label>
+              <div className="flex gap-1 h-9">
+                {[5, 10, 20, 50].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPromptCount(n)}
+                    className={`
+                      flex-1 rounded text-[11px] font-mono font-bold transition-all border cursor-pointer
+                      ${promptCount === n
+                        ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                        : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50 hover:text-gray-800'
+                      }
+                    `}
+                  >
+                    {n}
+                  </button>
+                ))}
               </div>
-
-              {/* Results Header */}
-              {prompts.length > 0 && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
-                      output [{prompts.length} prompts]
-                    </span>
-                    <Badge className="bg-emerald-100 text-emerald-800 text-[9px] font-mono px-1.5 py-0 border-0">
-                      {sfwCount} sfw
-                    </Badge>
-                    <Badge className="bg-red-100 text-red-800 text-[9px] font-mono px-1.5 py-0 border-0">
-                      {nsfwCount} nsfw
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3 text-[10px] font-mono text-gray-400">
-                    <button onClick={() => setShowAllNegatives(!showAllNegatives)} className="hover:text-gray-700 transition-colors cursor-pointer">
-                      {showAllNegatives ? '[hide negatives]' : '[show negatives]'}
-                    </button>
-                    <button onClick={copyAllPrompts} className="hover:text-gray-700 transition-colors cursor-pointer">
-                      [copy all]
-                    </button>
-                    <button onClick={handleExport} className="hover:text-gray-700 transition-colors cursor-pointer">
-                      [export.txt]
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Prompt Cards */}
-              {prompts.length > 0 ? (
-                <div className="space-y-2.5">
-                  {prompts.map((p, i) => (
-                    <PromptCard key={p.id} prompt={p} index={i} />
-                  ))}
-                </div>
-              ) : (
-                <Card className="bg-white border-gray-300 border-dashed shadow-none">
-                  <CardContent className="py-16 text-center">
-                    <Dices className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm font-mono font-bold text-gray-400 mb-1">no prompts generated</p>
-                    <p className="text-[11px] text-gray-400 font-mono max-w-md mx-auto leading-relaxed">
-                      {"// select a model + scene, configure your character,"}
-                      <br />{"// then hit generate. or use fully_random() to roll everything."}
-                    </p>
-                    <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-mono text-gray-400">
-                      <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-emerald-500" /> 3 SFW prompts</span>
-                      <span>+</span>
-                      <span className="flex items-center gap-1"><ShieldAlert className="w-3 h-3 text-red-500" /> 7 NSFW (XXX) prompts</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </div>
+
+          {/* Model info strip */}
+          <div className="rounded bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2">
+            <span className="text-[9px] text-gray-400 font-mono">{"// "}{currentModel.specialNotes}</span>
+            <span className="hidden sm:inline text-gray-300">--</span>
+            <div className="flex flex-wrap gap-1">
+              <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                {currentModel.defaultSteps} steps
+              </Badge>
+              <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                cfg {currentModel.defaultCfg}
+              </Badge>
+              <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                {currentModel.defaultSampler}
+              </Badge>
+            </div>
+          </div>
+
+          {/* ── Scene Selector ── */}
+          <div className="flex items-center gap-3">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono shrink-0 w-14">scene</Label>
+            <Select value={scene} onValueChange={setScene}>
+              <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500">
+                <SelectValue placeholder="-- choose scene --" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-gray-300 max-h-80">
+                {Object.entries(scenesByCategory).map(([category, scenes]) => (
+                  <SelectGroup key={category}>
+                    <SelectLabel className="text-[10px] text-gray-900 uppercase tracking-widest font-bold px-2 py-1 font-mono">
+                      {"// "}{category}
+                    </SelectLabel>
+                    {scenes.map((s) => (
+                      <SelectItem key={s.id} value={s.id} className="text-gray-700 font-mono text-xs focus:bg-gray-100 focus:text-black">
+                        {s.name}{" "}<span className="text-gray-400">{"-- "}{s.description}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Scene tags preview */}
+          {scene && (
+            <div className="rounded bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap gap-1 -mt-2">
+              {SCENES.find((s) => s.id === scene)?.tags.map((tag) => (
+                <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          <Separator />
+
+          {/* ── Companion Mode Config ── */}
+          {mode === 'companion' && (
+            <div className="space-y-4">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">
+                companion config
+              </div>
+
+              {/* Companion Theme */}
+              <div className="flex items-center gap-3">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono shrink-0 w-14">theme</Label>
+                <Select value={companionTheme} onValueChange={setCompanionTheme}>
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500 flex-1">
+                    <SelectValue placeholder="-- choose theme --" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-gray-300 max-h-80">
+                    {Object.entries(themesByCategory).map(([category, themes]) => (
+                      <SelectGroup key={category}>
+                        <SelectLabel className="text-[10px] text-gray-900 uppercase tracking-widest font-bold px-2 py-1 font-mono">
+                          {"// "}{category}
+                        </SelectLabel>
+                        {themes.map((t) => (
+                          <SelectItem key={t.id} value={t.id} className="text-gray-700 font-mono text-xs focus:bg-gray-100 focus:text-black">
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {companionTheme && (
+                <div className="rounded bg-gray-50 border border-gray-200 px-3 py-2 flex flex-wrap gap-1">
+                  {COMPANION_THEMES.find((t) => t.id === companionTheme)?.tags.map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-[9px] text-gray-500 border-gray-300 bg-white font-mono">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* Lighting */}
+              <div className="flex items-center gap-3">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono shrink-0 w-14">lighting</Label>
+                <Select value={companionLighting} onValueChange={setCompanionLighting}>
+                  <SelectTrigger className="bg-white border-gray-300 text-gray-800 font-mono text-xs h-9 focus:ring-1 focus:ring-gray-400 focus:border-gray-500 flex-1">
+                    <SelectValue placeholder="-- random --" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-gray-300 max-h-60">
+                    {LIGHTING_OPTIONS.map((l) => (
+                      <SelectItem key={l.id} value={l.id} className="text-gray-700 font-mono text-xs focus:bg-gray-100 focus:text-black">
+                        {l.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              {/* Expression */}
+              <div className="flex items-center gap-3">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono shrink-0 w-14">expression</Label>
+                <div className="flex-1">
+                  <SingleSelectDropdown
+                    attribute={getAttr('expression')}
+                    selected={character.expression || ''}
+                    onChange={(v) => setSingleAttr('expression', v)}
+                  />
+                </div>
+              </div>
+
+              {/* Pose (multi-select dropdown) */}
+              <div className="flex items-center gap-3">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono shrink-0 w-14">pose</Label>
+                <div className="flex-1">
+                  <MultiSelectDropdown
+                    attribute={getAttr('pose')}
+                    selected={character.pose || []}
+                    onChange={(ids) => setCharacter((prev) => ({ ...prev, pose: ids }))}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Custom Mode: Character Attributes ── */}
+          {mode === 'custom' && (
+            <div className="space-y-4">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">
+                character attributes
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Single-select attributes */}
+                {['gender', 'age', 'ethnicity', 'hair-color', 'eye-color', 'skin-tone', 'expression'].map((attrId) => (
+                  <div key={attrId} className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">
+                      {getAttr(attrId).label}
+                    </Label>
+                    <SingleSelectDropdown
+                      attribute={getAttr(attrId)}
+                      selected={(character[attrIdToKey(attrId)] as string) || ''}
+                      onChange={(v) => setSingleAttr(attrId, v)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <Separator />
+
+              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">
+                multi-select attributes
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Multi-select attributes as popover dropdowns */}
+                {['body-type', 'hair-style', 'clothing', 'pose', 'accessories'].map((attrId) => (
+                  <div key={attrId} className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-mono">
+                      {getAttr(attrId).label} <span className="text-gray-300 normal-case tracking-normal font-normal">[multi]</span>
+                    </Label>
+                    <MultiSelectDropdown
+                      attribute={getAttr(attrId)}
+                      selected={(character[attrIdToKey(attrId)] as string[]) || []}
+                      onChange={(ids) => {
+                        const key = attrIdToKey(attrId)
+                        setCharacter((prev) => ({ ...prev, [key]: ids }))
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Randomize character button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-[11px] font-mono border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-900 h-8 cursor-pointer"
+                onClick={() => {
+                  setCharacter({
+                    gender: pickOne(getAttr('gender').options).id,
+                    age: pickOne(getAttr('age').options).id,
+                    bodyType: pickRandom(getAttr('body-type').options, 2).map((o) => o.id),
+                    ethnicity: pickOne(getAttr('ethnicity').options).id,
+                    hairColor: pickOne(getAttr('hair-color').options).id,
+                    hairStyle: [pickOne(getAttr('hair-style').options).id],
+                    eyeColor: pickOne(getAttr('eye-color').options).id,
+                    skinTone: pickOne(getAttr('skin-tone').options).id,
+                    clothing: pickRandom(getAttr('clothing').options, 2).map((o) => o.id),
+                    expression: pickOne(getAttr('expression').options).id,
+                    pose: [pickOne(getAttr('pose').options).id],
+                    accessories: pickRandom(getAttr('accessories').options, 2).map((o) => o.id),
+                  })
+                }}
+              >
+                <Shuffle className="w-3 h-3 mr-1.5" />
+                randomize_character()
+              </Button>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* ── Advanced Options (collapsible) ── */}
+          <div>
+            <button
+              onClick={() => setAdvancedOpen(!advancedOpen)}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono hover:text-gray-800 transition-colors cursor-pointer"
+            >
+              <Zap className="w-3 h-3" />
+              generation options
+              {advancedOpen ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
+            </button>
+
+            {advancedOpen && (
+              <div className="mt-3 space-y-4 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+                {/* SFW/NSFW split info */}
+                <div className="rounded bg-white border border-gray-200 p-2.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-gray-700 uppercase tracking-wider">
+                    <Flame className="w-3 h-3" />
+                    sfw / nsfw split
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-mono leading-relaxed">
+                    When generating {promptCount} prompts: <span className="text-emerald-700 font-bold">{promptCount >= 5 ? 3 : 1} SFW</span> + <span className="text-red-700 font-bold">{promptCount >= 5 ? promptCount - 3 : promptCount - 1} NSFW</span> (XXX explicit actions for infatuated.ai)
+                  </p>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] text-gray-600 font-mono">random action (sfw/nsfw)</Label>
+                    <Switch checked={includeAction} onCheckedChange={setIncludeAction} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] text-gray-600 font-mono">random art style</Label>
+                    <Switch checked={includeArtStyle} onCheckedChange={setIncludeArtStyle} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] text-gray-600 font-mono">random camera angle</Label>
+                    <Switch checked={includeCameraAngle} onCheckedChange={setIncludeCameraAngle} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] text-gray-600 font-mono">random lighting</Label>
+                    <Switch checked={includeLighting} onCheckedChange={setIncludeLighting} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] text-gray-600 font-mono">quality boost</Label>
+                    <Switch checked={includeExtraQuality} onCheckedChange={setIncludeExtraQuality} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* ── Generate Buttons ── */}
+          <div className="flex gap-2">
+            <Button
+              onClick={handleGenerate}
+              disabled={!scene || isGenerating}
+              className="flex-1 bg-gray-900 hover:bg-black text-white font-mono font-bold text-xs h-10 uppercase tracking-wider cursor-pointer"
+            >
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  generating...
+                </>
+              ) : (
+                <>
+                  <Dices className="w-3.5 h-3.5 mr-2" />
+                  generate {promptCount} prompts
+                </>
+              )}
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleQuickRandom}
+                  disabled={isGenerating}
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900 h-10 font-mono text-xs cursor-pointer"
+                >
+                  <Dice5 className="w-3.5 h-3.5 mr-1.5" />
+                  <span className="hidden sm:inline">fully_random()</span>
+                  <span className="sm:hidden">random</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="bg-gray-900 text-gray-100 border-gray-700 text-[10px] font-mono max-w-[240px]">
+                {"// randomizes everything: model, scene, character, all options"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* ── Results ── */}
+          {prompts.length > 0 && (
+            <div className="space-y-3">
+              {/* Results Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 font-mono">
+                    output [{prompts.length} prompts]
+                  </span>
+                  <Badge className="bg-emerald-100 text-emerald-800 text-[9px] font-mono px-1.5 py-0 border-0">
+                    {sfwCount} sfw
+                  </Badge>
+                  <Badge className="bg-red-100 text-red-800 text-[9px] font-mono px-1.5 py-0 border-0">
+                    {nsfwCount} nsfw
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] font-mono text-gray-400">
+                  <button onClick={() => setShowAllNegatives(!showAllNegatives)} className="hover:text-gray-700 transition-colors cursor-pointer">
+                    {showAllNegatives ? '[hide negatives]' : '[show negatives]'}
+                  </button>
+                  <button onClick={copyAllPrompts} className="hover:text-gray-700 transition-colors cursor-pointer">
+                    [copy all]
+                  </button>
+                  <button onClick={handleExport} className="hover:text-gray-700 transition-colors cursor-pointer">
+                    [export.txt]
+                  </button>
+                </div>
+              </div>
+
+              {/* Prompt Cards */}
+              <div className="space-y-2.5">
+                {prompts.map((p, i) => (
+                  <PromptCard key={p.id} prompt={p} index={i} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {prompts.length === 0 && (
+            <Card className="bg-white border-gray-300 border-dashed shadow-none">
+              <CardContent className="py-14 text-center">
+                <Dices className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-mono font-bold text-gray-400 mb-1">no prompts generated</p>
+                <p className="text-[11px] text-gray-400 font-mono max-w-md mx-auto leading-relaxed">
+                  {"// select a model + scene, configure your character,"}
+                  <br />{"// then hit generate. or use fully_random() to roll everything."}
+                </p>
+                <div className="flex items-center justify-center gap-3 mt-4 text-[10px] font-mono text-gray-400">
+                  <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-emerald-500" /> 3 SFW prompts</span>
+                  <span>+</span>
+                  <span className="flex items-center gap-1"><ShieldAlert className="w-3 h-3 text-red-500" /> 7 NSFW (XXX) prompts</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Footer */}
-        <footer className="border-t-2 border-gray-900 mt-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+        {/* ── Footer ── */}
+        <footer className="border-t-2 border-gray-900 mt-auto">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5">
               <p className="text-[10px] text-gray-400 font-mono">
                 prompt_forge.exe v2.0 -- AI Image Prompt Generator
@@ -876,11 +884,4 @@ export default function PromptGenerator() {
   )
 }
 
-// ─── local helpers for randomize button ───
-function pickOne<T>(arr: { id: string }[]): T & { id: string } {
-  return arr[Math.floor(Math.random() * arr.length)] as T & { id: string }
-}
-function pickRandom<T>(arr: { id: string }[], count: number): (T & { id: string })[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, count) as (T & { id: string })[]
-}
+
